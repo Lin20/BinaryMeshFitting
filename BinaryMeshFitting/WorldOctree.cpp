@@ -226,6 +226,8 @@ bool WorldOctree::node_needs_group(const glm::vec3& center, WorldOctreeNode* n)
 	using namespace glm;
 	if (n->level <= properties.min_level)
 		return false;
+	if (n->level >= properties.max_level)
+		return true;
 
 	float d = distance(n->middle, center);
 	return d > n->size * properties.group_multiplier + properties.size_modifier + n->size * 0.5f;
@@ -894,7 +896,6 @@ void WorldOctree::process_from_render_thread()
 			n->generation_stage = GENERATION_STAGES_UPLOADING;
 			n->upload(&gl_allocator);
 			n->generation_stage = GENERATION_STAGES_DONE;
-			n->flags &= ~NODE_FLAGS_GENERATING;
 			if (upload_count++ >= MAX_UPLOADS)
 				break;
 		}
