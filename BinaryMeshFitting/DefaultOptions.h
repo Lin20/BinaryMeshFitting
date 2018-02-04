@@ -1,0 +1,12 @@
+#pragma once
+
+#define FILL_MODE_FILL 0
+#define FILL_MODE_BOTH 1
+#define FILL_MODE_WIRE 2
+
+#define QUADS 1
+#define SMOOTH_NORMALS 0
+#define DEFAULT_FILL_MODE FILL_MODE_BOTH
+#define FLAT_QUADS 1
+
+#define SPECULAR_POWER 32.0f
