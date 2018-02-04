@@ -55,6 +55,8 @@ public:
 	WorldWatcher watcher;
 	ResourceAllocator<GLChunk> gl_allocator;
 
+	std::atomic<bool> generator_shutdown;
+
 	WorldOctree();
 	~WorldOctree();
 

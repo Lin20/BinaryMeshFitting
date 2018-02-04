@@ -13,6 +13,7 @@ ChunkGenerator::ChunkGenerator() : ThreadDebug("ChunkGenerator")
 ChunkGenerator::~ChunkGenerator()
 {
 	stop();
+	world->generator_shutdown = true;
 }
 
 void ChunkGenerator::init(WorldOctree* _world)

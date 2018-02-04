@@ -37,6 +37,7 @@ WorldOctree::WorldOctree()
 	NoiseSamplers::create_sampler_terrain_pert_2d(&sampler);
 	sampler.world_size = 256;
 	focus_point = glm::vec3(0, 0, 0);
+	generator_shutdown = false;
 
 	this->properties = WorldProperties();
 
@@ -52,12 +53,6 @@ WorldOctree::WorldOctree()
 	cout << "-Min Level:\t" << properties.min_level << endl << endl;
 }
 
-WorldOctree::~WorldOctree()
-{
-	destroy_leaves();
-	delete sampler.noise_sampler;
-}
-
 void destroy_world_nodes(MemoryPool<WorldOctreeNode, 65536>* pool, MemoryPool<CubicChunk, 65536>* chunk_pool, WorldOctreeNode* n)
 {
 	if (!n)
@@ -69,16 +64,23 @@ void destroy_world_nodes(MemoryPool<WorldOctreeNode, 65536>* pool, MemoryPool<Cu
 		{
 			destroy_world_nodes(pool, chunk_pool, (WorldOctreeNode*)n->children[i]);
 		}
-		if (n->chunk)
-		{
-			chunk_pool->deleteElement(n->chunk);
-			break;
-		}
 		n->children[i] = 0;
+	}
+
+	if (n->chunk)
+	{
+		chunk_pool->deleteElement(n->chunk);
+		n->chunk = 0;
 	}
 
 	if (n->level > 0)
 		pool->deleteElement(n);
+}
+
+WorldOctree::~WorldOctree()
+{
+	destroy_world_nodes(&node_pool, &chunk_pool, &octree);
+	delete sampler.noise_sampler;
 }
 
 void WorldOctree::destroy_leaves()
@@ -883,7 +885,7 @@ void WorldOctree::process_from_render_thread()
 	// Renderables mutex is already locked from the main render loop
 
 	const int MAX_DELETES = 1500;
-	const int MAX_UPLOADS = 1000;
+	const int MAX_UPLOADS = 50;
 
 	int upload_count = 0;
 	WorldOctreeNode* n = watcher.renderables_head;
@@ -896,8 +898,11 @@ void WorldOctree::process_from_render_thread()
 			n->generation_stage = GENERATION_STAGES_UPLOADING;
 			n->upload(&gl_allocator);
 			n->generation_stage = GENERATION_STAGES_DONE;
-			if (upload_count++ >= MAX_UPLOADS)
-				break;
+			if (n->gl_chunk && n->gl_chunk->p_count > 0 && n->gl_chunk->v_count > 0)
+			{
+				if (upload_count++ >= MAX_UPLOADS)
+					break;
+			}
 		}
 		n = n->renderable_next;
 	}

@@ -13,6 +13,7 @@ WorldWatcher::WorldWatcher() : ThreadDebug("WorldWatcher")
 WorldWatcher::~WorldWatcher()
 {
 	stop();
+
 }
 
 void WorldWatcher::init(WorldOctree* _world, glm::vec3 focus_pos)

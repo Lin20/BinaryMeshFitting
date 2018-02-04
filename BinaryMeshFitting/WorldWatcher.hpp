@@ -29,10 +29,10 @@ public:
 	WorldOctreeNode* renderables_tail;
 	SmartContainer<class WorldOctreeNode*> destroy_watchlist;
 	std::atomic<int> renderables_count;
+	ChunkGenerator generator;
 
 private:
 	class WorldOctree* world;
-	ChunkGenerator generator;
 	std::thread _thread;
 	std::atomic<bool> _stop;
 

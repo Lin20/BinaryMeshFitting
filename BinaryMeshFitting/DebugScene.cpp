@@ -232,6 +232,8 @@ DebugScene::~DebugScene()
 {
 	auto_update = false;
 	update_thread.join();
+	world.watcher.stop();
+	world.watcher.generator.stop();
 
 	delete dual_chunk;
 	delete binary_chunk;
@@ -779,17 +781,6 @@ void DebugScene::render_gui()
 	ImGui::Checkbox("Quads", &quads);
 	ImGui::Checkbox("Flat quads", &flat_quads);
 	ImGui::Checkbox("Smooth shading", &smooth_shading);
-
-	if (ImGui::Button("Extract All"))
-	{
-		world.destroy_leaves();
-		world.init(256);
-		world.split_leaves();
-		world.extract_all();
-		world.color_all();
-		world.process_all();
-		world.upload_all();
-	}
 
 	ImGui::End();
 

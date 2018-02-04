@@ -14,6 +14,21 @@ public:
 
 	inline ~ResourceAllocator()
 	{
+		LinkedNode<T>* n = used_chunks.head;
+		while (n)
+		{
+			LinkedNode<T>* next = n->next;
+			pool.deleteElement((T*)n);
+			n = next;
+		}
+
+		n = free_chunks.head;
+		while (n)
+		{
+			LinkedNode<T>* next = n->next;
+			pool.deleteElement((T*)n);
+			n = next;
+		}
 	}
 
 	inline T* new_element(bool no_lock = false)
