@@ -51,7 +51,7 @@ DebugScene::DebugScene(RenderInput* render_input)
 	this->flat_quads = FLAT_QUADS;
 	this->cull = true;
 	this->gui_visible = true;
-	this->auto_update = true;
+	this->update_focus = true;
 	this->line_width = 1.0f;
 	this->specular_power = SPECULAR_POWER;
 
@@ -230,8 +230,6 @@ DebugScene::DebugScene(RenderInput* render_input)
 
 DebugScene::~DebugScene()
 {
-	auto_update = false;
-	update_thread.join();
 	world.watcher.stop();
 	world.watcher.generator.stop();
 
@@ -298,7 +296,7 @@ void DebugScene::init_single_chunk()
 	cout << endl << "Full extraction took " << (int)((elapsed + extract_time) / (double)CLOCKS_PER_SEC * 1000.0) << "ms" << endl;
 
 	gl_chunk.init(true, true);
-	gl_chunk.set_data(v_out, i_out, flat_quads, smooth_shading);
+	gl_chunk.format_data(v_out, i_out, flat_quads, smooth_shading);
 
 	delete sampler.noise_sampler;
 }
@@ -360,7 +358,7 @@ void DebugScene::init_binary_chunk()
 	cout << endl << "Full extraction took " << (int)((elapsed + extract_time) / (double)CLOCKS_PER_SEC * 1000.0) << "ms" << endl;
 
 	gl_chunk.init(true, true);
-	gl_chunk.set_data(v_out, i_out, flat_quads, smooth_shading);
+	gl_chunk.format_data(v_out, i_out, flat_quads, smooth_shading);
 
 	delete sampler.noise_sampler;
 }
@@ -377,8 +375,6 @@ void DebugScene::init_world()
 
 	update_required = false;
 
-	update_thread = std::thread(std::bind(&DebugScene::watch_world_updates, this));
-
 	last_extraction = clock();
 }
 
@@ -386,6 +382,7 @@ int DebugScene::update(RenderInput* input)
 {
 	glfwPollEvents();
 	camera.update(input);
+	if(update_focus)
 	{
 		std::unique_lock<std::mutex> l(world.watcher._mutex);
 		world.watcher.focus_pos = camera.v_position;
@@ -474,37 +471,11 @@ void DebugScene::render_binary_chunk()
 
 void DebugScene::render_world()
 {
-	/*{
-		std::unique_lock<std::mutex> update_lock(update_mutex);
-		if (update_required)
-		{
-			world.upload_all();
-			update_required = false;
-		}
-	}*/
 	std::unique_lock<std::mutex> draw_lock(world.watcher.renderables_mutex);
 	if (!world.watcher.renderables_head)
 		return;
 
 	world.process_from_render_thread();
-
-	/*for (auto& n : world.watcher.renderables)
-	{
-		if (n->delete_gl_chunk)
-		{
-			n->gl_chunk.destroy();
-			n->delete_gl_chunk = false;
-			if (delete_count++ >= MAX_DELETES)
-				break;
-		}
-		else if (n->needs_upload)
-		{
-			n->upload();
-			n->needs_upload = false;
-			if (upload_count++ >= MAX_UPLOADS)
-				break;
-		}
-	}*/
 
 	if (fillmode == FILL_MODE_FILL || fillmode == FILL_MODE_BOTH)
 	{
@@ -749,7 +720,7 @@ void DebugScene::render_gui()
 
 	ImGui::Text("Group mult.:");
 	ImGui::NextColumn();
-	ImGui::SliderFloat("##lbl_octree_group", &world.properties.group_multiplier, 1.0f, 32.0f, 0, 0.5f);
+	ImGui::SliderFloat("##lbl_octree_group", &world.properties.group_multiplier, 1.0f, 4.0f, 0, 0.5f);
 	ImGui::NextColumn();
 
 	ImGui::Text("Threads:");
@@ -781,13 +752,10 @@ void DebugScene::render_gui()
 	ImGui::Checkbox("Quads", &quads);
 	ImGui::Checkbox("Flat quads", &flat_quads);
 	ImGui::Checkbox("Smooth shading", &smooth_shading);
+	ImGui::Checkbox("Update focus point", &update_focus);
 
 	ImGui::End();
 
 	ImGui::Render();
 }
 
-void DebugScene::watch_world_updates()
-{
-
-}

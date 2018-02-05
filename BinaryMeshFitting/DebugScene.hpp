@@ -22,7 +22,7 @@ class DebugScene
 	bool smooth_shading;
 	bool flat_quads;
 	bool gui_visible;
-	bool auto_update;
+	bool update_focus;
 	float line_width;
 	float line_color[4];
 	float fill_color[4];
@@ -59,7 +59,6 @@ class DebugScene
 
 	BinaryChunk* binary_chunk;
 
-	std::thread update_thread;
 	std::mutex gl_mutex;
 	clock_t last_extraction;
 	bool update_required;
@@ -81,6 +80,4 @@ public:
 
 	void key_callback(int key, int scancode, int action, int mods);
 	void render_gui();
-
-	void watch_world_updates();
 };

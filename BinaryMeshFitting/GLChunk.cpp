@@ -54,6 +54,11 @@ void GLChunk::destroy()
 	initialized = 0;
 }
 
+bool GLChunk::set_data(SmartContainer<uint32_t>& index_data, bool unwind_verts)
+{
+	return set_data(p_data, n_data, c_data, index_data, unwind_verts);
+}
+
 bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<uint32_t>& index_data)
 {
 	if (!pos_data.count || !index_data.count)
@@ -172,14 +177,17 @@ bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::
 	return true;
 }
 
-bool GLChunk::set_data(SmartContainer<DualVertex>& vert_data, SmartContainer<uint32_t>& index_data, bool unwind_verts, bool smooth_normals)
+bool GLChunk::format_data(SmartContainer<DualVertex>& vert_data, SmartContainer<uint32_t>& index_data, bool unwind_verts, bool smooth_normals)
 {
+	p_data.count = 0;
+	n_data.count = 0;
+	c_data.count = 0;
 	using namespace glm;
 	if (!unwind_verts)
 	{
-		SmartContainer<vec3> p_data(vert_data.count);
-		SmartContainer<vec3> n_data(vert_data.count);
-		SmartContainer<vec3> c_data(vert_data.count);
+		p_data.prepare_exact(vert_data.count);
+		n_data.prepare_exact(vert_data.count);
+		c_data.prepare_exact(vert_data.count);
 
 		size_t count = vert_data.count;
 		for (size_t i = 0; i < count; i++)
@@ -188,14 +196,12 @@ bool GLChunk::set_data(SmartContainer<DualVertex>& vert_data, SmartContainer<uin
 			n_data.push_back(vert_data[i].n);
 			c_data.push_back(vert_data[i].color);
 		}
-
-		return set_data(p_data, n_data, c_data, index_data, unwind_verts);
 	}
 	else
 	{
-		SmartContainer<vec3> p_data(vert_data.count * 4);
-		SmartContainer<vec3> n_data(vert_data.count * 4);
-		SmartContainer<vec3> c_data(vert_data.count * 4);
+		p_data.prepare_exact(vert_data.count * 4);
+		n_data.prepare_exact(vert_data.count * 4);
+		c_data.prepare_exact(vert_data.count * 4);
 
 		size_t count = index_data.count;
 		for (size_t i = 0; i < count; i += 4)
@@ -225,8 +231,7 @@ bool GLChunk::set_data(SmartContainer<DualVertex>& vert_data, SmartContainer<uin
 			n_data.push_back(n);
 			n_data.push_back(n);
 		}
-
-		return set_data(p_data, n_data, c_data, index_data, unwind_verts);
 	}
 
+	return true;
 }

@@ -373,7 +373,7 @@ void WorldOctree::upload_batch(SmartContainer<WorldOctreeNode*>& batch)
 	int count = (int)batch.count;
 	for (int i = 0; i < count; i++)
 	{
-		batch[i]->upload(&gl_allocator);
+		//batch[i]->upload(&gl_allocator);
 	}
 }
 
@@ -429,7 +429,7 @@ void WorldOctree::extract_samples(SmartContainer<WorldOctreeNode*>& batch)
 #pragma omp parallel for
 	for (i = 0; i < count; i++)
 	{
-		batch[i]->chunk->generate_samples(0, 0);
+		//batch[i]->chunk->generate_samples(0, 0);
 	}
 
 	/*for (auto& n : leaves)
@@ -451,7 +451,7 @@ void WorldOctree::extract_filter(SmartContainer<WorldOctreeNode*>& batch)
 #pragma omp parallel for
 	for (i = 0; i < count; i++)
 	{
-		batch[i]->chunk->filter();
+		//batch[i]->chunk->filter();
 	}
 
 	double ms = clock() - start_clock;
@@ -470,7 +470,7 @@ void WorldOctree::extract_dual_vertices(SmartContainer<WorldOctreeNode*>& batch)
 #pragma omp for
 		for (int i = 0; i < count; i++)
 		{
-			batch[i]->chunk->generate_dual_vertices();
+			//batch[i]->chunk->generate_dual_vertices();
 		}
 	}
 
@@ -490,7 +490,7 @@ void WorldOctree::extract_octrees(SmartContainer<WorldOctreeNode*>& batch)
 #pragma omp for
 		for (int i = 0; i < count; i++)
 		{
-			batch[i]->chunk->generate_octree();
+			//batch[i]->chunk->generate_octree();
 			if (!batch[i]->chunk->octree.is_leaf())
 			{
 				memcpy(batch[i]->children, batch[i]->chunk->octree.children, sizeof(OctreeNode*) * 8);
@@ -517,7 +517,7 @@ void WorldOctree::extract_base_meshes(SmartContainer<WorldOctreeNode*>& batch)
 #pragma omp for
 		for (int i = 0; i < count; i++)
 		{
-			batch[i]->chunk->generate_base_mesh();
+			//batch[i]->chunk->generate_base_mesh();
 		}
 	}
 
@@ -534,8 +534,8 @@ void WorldOctree::extract_copy_vis(SmartContainer<WorldOctreeNode*>& batch)
 	int count = (int)batch.count;
 	for (int i = 0; i < count; i++)
 	{
-		batch[i]->chunk->copy_verts_and_inds(v_out, i_out);
-		batch[i]->chunk->dirty = false;
+		//batch[i]->chunk->copy_verts_and_inds(v_out, i_out);
+		//batch[i]->chunk->dirty = false;
 	}
 
 	double ms = clock() - start_clock;
@@ -885,7 +885,7 @@ void WorldOctree::process_from_render_thread()
 	// Renderables mutex is already locked from the main render loop
 
 	const int MAX_DELETES = 1500;
-	const int MAX_UPLOADS = 50;
+	const int MAX_UPLOADS = 100;
 
 	int upload_count = 0;
 	WorldOctreeNode* n = watcher.renderables_head;
@@ -896,7 +896,7 @@ void WorldOctree::process_from_render_thread()
 		if ((flags & NODE_FLAGS_GENERATING) && stage == GENERATION_STAGES_NEEDS_UPLOAD)
 		{
 			n->generation_stage = GENERATION_STAGES_UPLOADING;
-			n->upload(&gl_allocator);
+			n->upload();
 			n->generation_stage = GENERATION_STAGES_DONE;
 			if (n->gl_chunk && n->gl_chunk->p_count > 0 && n->gl_chunk->v_count > 0)
 			{

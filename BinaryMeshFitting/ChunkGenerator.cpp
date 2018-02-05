@@ -28,7 +28,7 @@ void ChunkGenerator::update()
 	print() << "Initialized thread." << std::endl;
 
 	glm::vec3 pos;
-	const int ms_frequency = 25;
+	const int ms_frequency = 10;
 	SmartContainer<WorldOctreeNode*> dirty_batch;
 	SmartContainer<WorldOctreeNode*> generate_batch;
 	while (!_stop)
@@ -62,7 +62,6 @@ void ChunkGenerator::stop()
 
 void ChunkGenerator::process_queue()
 {
-	const int max_updates = 20;
 	std::vector<WorldOctreeNode*> local_queue;
 	{
 		std::unique_lock<std::mutex> lock(_mutex);
@@ -87,6 +86,10 @@ void ChunkGenerator::process_queue()
 				i--;
 			}
 		}
+		else if (n->generation_stage == GENERATION_STAGES_NEEDS_FORMAT)
+		{
+			continue;
+		}
 		else
 		{
 			print() << "WARNING: Node found with incorrect generation stage!" << std::endl;
@@ -98,13 +101,15 @@ void ChunkGenerator::process_queue()
 	count = (int)local_queue.size();
 	for (int i = 0; i < count; i++)
 	{
-		generate_chunk(local_queue[i]);
+		if (local_queue[i]->generation_stage == GENERATION_STAGES_GENERATING)
+			generate_chunk(local_queue[i]);
 	}
 
 	extract_samples(local_queue, &binary_allocator, &float_allocator);
 	extract_dual_vertices(local_queue);
 	extract_octrees(local_queue);
 	extract_base_meshes(local_queue);
+	extract_format_meshes(local_queue);
 
 	for (int i = 0; i < count; i++)
 	{
@@ -129,6 +134,12 @@ void ChunkGenerator::add_batch(SmartContainer<WorldOctreeNode*>& batch)
 
 			queue.push_back(n);
 		}
+		else if (stage == GENERATION_STAGES_NEEDS_FORMAT && (flags & NODE_FLAGS_GENERATING))
+		{
+			queue.push_back(n);
+		}
+		else
+			print() << "Ignoring batch item." << std::endl;
 	}
 }
 
@@ -153,7 +164,8 @@ void ChunkGenerator::extract_samples(std::vector<class WorldOctreeNode*>& batch,
 #pragma omp parallel for
 	for (i = 0; i < count; i++)
 	{
-		batch[i]->chunk->generate_samples(binary_allocator, float_allocator);
+		if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
+			batch[i]->chunk->generate_samples(binary_allocator, float_allocator);
 	}
 
 	/*for (auto& n : leaves)
@@ -175,7 +187,8 @@ void ChunkGenerator::extract_filter(std::vector<WorldOctreeNode*>& batch)
 #pragma omp parallel for
 	for (i = 0; i < count; i++)
 	{
-		batch[i]->chunk->filter();
+		if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
+			batch[i]->chunk->filter();
 	}
 
 	double ms = clock() - start_clock;
@@ -194,7 +207,8 @@ void ChunkGenerator::extract_dual_vertices(std::vector<WorldOctreeNode*>& batch)
 #pragma omp for
 		for (int i = 0; i < count; i++)
 		{
-			batch[i]->chunk->generate_dual_vertices();
+			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
+				batch[i]->chunk->generate_dual_vertices(&vi_allocator);
 		}
 	}
 
@@ -214,14 +228,17 @@ void ChunkGenerator::extract_octrees(std::vector<WorldOctreeNode*>& batch)
 #pragma omp for
 		for (int i = 0; i < count; i++)
 		{
-			batch[i]->chunk->generate_octree();
-			if (!batch[i]->chunk->octree.is_leaf())
+			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
 			{
-				memcpy(batch[i]->children, batch[i]->chunk->octree.children, sizeof(OctreeNode*) * 8);
-				batch[i]->leaf_flag = false;
+				batch[i]->chunk->generate_octree();
+				if (!batch[i]->chunk->octree.is_leaf())
+				{
+					memcpy(batch[i]->children, batch[i]->chunk->octree.children, sizeof(OctreeNode*) * 8);
+					batch[i]->leaf_flag = false;
+				}
+				else
+					cout << "WARNING: Octree is leaf." << endl;
 			}
-			else
-				cout << "WARNING: Octree is leaf." << endl;
 		}
 	}
 
@@ -241,7 +258,8 @@ void ChunkGenerator::extract_base_meshes(std::vector<WorldOctreeNode*>& batch)
 #pragma omp for
 		for (int i = 0; i < count; i++)
 		{
-			batch[i]->chunk->generate_base_mesh();
+			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
+				batch[i]->chunk->generate_base_mesh(&vi_allocator);
 		}
 	}
 
@@ -255,4 +273,23 @@ void ChunkGenerator::extract_copy_vis(std::vector<WorldOctreeNode*>& batch)
 
 void ChunkGenerator::extract_stitches(std::vector<WorldOctreeNode*>& batch)
 {
+}
+
+void ChunkGenerator::extract_format_meshes(std::vector<class WorldOctreeNode*>& batch)
+{
+	using namespace std;
+	//cout << "-Generating base meshes...";
+	clock_t start_clock = clock();
+
+	int count = (int)batch.size();
+#pragma omp parallel
+	{
+#pragma omp for
+		for (int i = 0; i < count; i++)
+		{
+			batch[i]->format(&world->gl_allocator);
+		}
+	}
+
+	double ms = clock() - start_clock;
 }

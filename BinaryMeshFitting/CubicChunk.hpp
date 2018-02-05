@@ -18,7 +18,7 @@ public:
 	~CubicChunk();
 	void init(glm::vec3 pos, float size, int level, Sampler& sampler, bool produce_quads) override;
 	void generate_samples(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<FloatBlock>* float_allocator) final override;
-	void generate_dual_vertices() final override;
+	void generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator) final override;
 	__forceinline void calculate_cell(glm::uvec3 xyz, uint32_t next_index, Cell* result, bool force, uint8_t mask);
 	__forceinline bool calculate_dual_vertex(glm::uvec3 xyz, uint32_t next_index, DualVertex* result, bool force, uint8_t mask, glm::vec3 pos_override) final override;
 
@@ -28,7 +28,7 @@ public:
 	void calculate_valences() final override;
 	uint32_t collapse_bad_cells() final override;
 
-	void generate_base_mesh() final override;
+	void generate_base_mesh(ResourceAllocator<VerticesIndicesBlock>* vi_allocator) final override;
 
 	void generate_octree();
 

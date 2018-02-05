@@ -4,6 +4,7 @@
 #include <string>
 #include <FastNoiseSIMD.h>
 #include "LinkedNode.hpp"
+#include "Vertices.hpp"
 
 struct BinaryBlock : public LinkedNode<BinaryBlock>
 {
@@ -64,5 +65,25 @@ struct FloatBlock : public LinkedNode<FloatBlock>
 		data = (float*)_aligned_malloc(sizeof(float) * _raw_size, 16);
 		vectorset.SetSize(_raw_size);
 		initialized = true;
+	}
+};
+
+struct VerticesIndicesBlock : public LinkedNode<VerticesIndicesBlock>
+{
+	SmartContainer<DualVertex> vertices;
+	SmartContainer<uint32_t> mesh_indexes;
+
+	inline VerticesIndicesBlock()
+	{
+	}
+
+	inline ~VerticesIndicesBlock()
+	{
+	}
+
+	void init()
+	{
+		vertices.count = 0;
+		mesh_indexes.count = 0;
 	}
 };

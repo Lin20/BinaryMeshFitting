@@ -49,21 +49,34 @@ void WorldOctreeNode::init(uint32_t _index, WorldOctreeNode* _parent, float _siz
 	flags = 0;
 }
 
-bool WorldOctreeNode::upload(ResourceAllocator<GLChunk>* allocator)
+bool WorldOctreeNode::format(ResourceAllocator<GLChunk>* allocator)
 {
 	assert(allocator);
+	
 	if (chunk && chunk->contains_mesh)
 	{
+		assert(chunk->vi);
 		if (!gl_chunk)
 		{
 			gl_chunk = allocator->new_element();
 			if (!gl_chunk)
 				return false;
 		}
-		gl_chunk->init(true, true);
-		gl_chunk->set_data(chunk->vertices, chunk->mesh_indexes, FLAT_QUADS, SMOOTH_NORMALS);
+		gl_chunk->format_data(chunk->vi->vertices, chunk->vi->mesh_indexes, FLAT_QUADS, SMOOTH_NORMALS);
+		
 	}
-	else
+
+	return true;
+}
+
+bool WorldOctreeNode::upload()
+{
+	if (chunk && chunk->contains_mesh)
+	{
+		assert(gl_chunk);
+		gl_chunk->init(true, true);
+		return gl_chunk->set_data(chunk->vi->mesh_indexes, FLAT_QUADS);
+	}
 
 	return true;
 }

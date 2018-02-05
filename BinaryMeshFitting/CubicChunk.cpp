@@ -131,10 +131,16 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 	float_allocator->free_element(float_block);
 }
 
-void CubicChunk::generate_dual_vertices()
+void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator)
 {
 	if (!contains_mesh)
 		return;
+
+	if (!vi)
+	{
+		vi = vi_allocator->new_element();
+		vi->init();
+	}
 
 	uint32_t dimp1 = dim + 1;
 	uint32_t count = dim * dim * dim;
@@ -400,7 +406,7 @@ void CubicChunk::generate_dual_vertices()
 
 	cells.scale = 4;
 	cells.resize(4096);
-	vertices.resize(dim * dim * 16);
+	//vertices.resize(dim * dim * 16);
 	Cell temp;
 	for (uint32_t x = 0; x < dim; x++)
 	{
@@ -417,7 +423,7 @@ void CubicChunk::generate_dual_vertices()
 						uint8_t sub_mask = (mask & 0xFF);
 						if (sub_mask != 0 && sub_mask != 255)
 						{
-							calculate_cell(uvec3(x, y, z + sub_z), (uint32_t)vertices.count, &temp, false, sub_mask);
+							calculate_cell(uvec3(x, y, z + sub_z), (uint32_t)vi->vertices.count, &temp, false, sub_mask);
 							inds[index] = (uint32_t)cells.count;
 							cells.push_back(temp);
 							//calculate_dual_vertex(uvec3(x, y, z + sub_z), (uint32_t)vertices.count, &temp, false, sub_mask);
@@ -447,7 +453,7 @@ void CubicChunk::generate_dual_vertices()
 			}
 		}
 	}
-	vertices.shrink();
+	//vertices.shrink();
 	cells.shrink();
 
 	free(masks);
@@ -511,9 +517,9 @@ __forceinline void CubicChunk::calculate_cell(glm::uvec3 xyz, uint32_t next_inde
 	for (int i = 0; i < v_index; i++)
 	{
 		DualVertex v;
-		calculate_dual_vertex(xyz, (uint32_t)vertices.count, &v, false, mask, glm::vec3(0, 0, 0));
-		result->v_map[i] = (uint32_t)vertices.count;
-		vertices.push_back(v);
+		calculate_dual_vertex(xyz, (uint32_t)vi->vertices.count, &v, false, mask, glm::vec3(0, 0, 0));
+		result->v_map[i] = (uint32_t)vi->vertices.count;
+		vi->vertices.push_back(v);
 	}
 
 	result->edge_map = edge_map;
@@ -591,7 +597,9 @@ void CubicChunk::calculate_valences()
 	{ { 0, 1, 0 },{ 1, 0, 0 },{ 1, 1, 0 } }
 	};
 
-	mesh_indexes.prepare(vertices.count * 6);
+	auto& vertices = vi->vertices;
+
+	vi->mesh_indexes.prepare(vertices.count * 6);
 	size_t v_count = vertices.count;
 	uint32_t v_inds[4];
 	for (uint32_t i = 0; i < v_count; i++)
@@ -639,7 +647,7 @@ uint32_t CubicChunk::collapse_bad_cells()
 		return 0;
 
 	uint32_t bad_count = 0;
-	size_t v_count = vertices.count;
+	size_t v_count = vi->vertices.count;
 	uint32_t v_inds[4];
 
 	const int masks[] = { 3, 7, 11 };
@@ -648,6 +656,8 @@ uint32_t CubicChunk::collapse_bad_cells()
 	{ { 0, 0, 1 },{ 1, 0, 0 },{ 1, 0, 1 } },
 	{ { 0, 1, 0 },{ 1, 0, 0 },{ 1, 1, 0 } }
 	};
+
+	auto& vertices = vi->vertices;
 
 	for (uint32_t i = 0; i < v_count; i++)
 	{
@@ -688,10 +698,16 @@ uint32_t CubicChunk::collapse_bad_cells()
 	return bad_count;
 }
 
-void CubicChunk::generate_base_mesh()
+void CubicChunk::generate_base_mesh(ResourceAllocator<VerticesIndicesBlock>* vi_allocator)
 {
 	if (!contains_mesh)
 		return;
+
+	if (!vi)
+	{
+		vi = vi_allocator->new_element();
+		vi->init();
+	}
 
 	//assert(vertices.count > 0);
 	const int edge_masks[] = { 3, 7, 11 };
@@ -707,6 +723,9 @@ void CubicChunk::generate_base_mesh()
 		{ 6, 5, 4 },
 		{ 10, 9, 8 }
 	};
+
+	auto& vertices = vi->vertices;
+	auto& mesh_indexes = vi->mesh_indexes;
 
 	mesh_indexes.prepare(vertices.count * 6);
 	size_t c_count = cells.count;

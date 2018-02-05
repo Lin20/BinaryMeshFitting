@@ -47,5 +47,5 @@ private:
 	void group_node_2(class WorldOctreeNode* n);
 
 	void unlink_renderable(class WorldOctreeNode* n);
-	void push_bach_renderable(class WorldOctreeNode* n);
+	void push_back_renderable(class WorldOctreeNode* n);
 };

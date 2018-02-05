@@ -35,9 +35,10 @@ typedef enum GENERATION_STAGES
 	GENERATION_STAGES_GENERATOR_QUEUED = 2,
 	GENERATION_STAGES_GENERATOR_ACKNOWLEDGED = 3,
 	GENERATION_STAGES_GENERATING = 4,
-	GENERATION_STAGES_NEEDS_UPLOAD = 5,
-	GENERATION_STAGES_UPLOADING = 6,
-	GENERATION_STAGES_DONE = 7
+	GENERATION_STAGES_NEEDS_FORMAT = 5,
+	GENERATION_STAGES_NEEDS_UPLOAD = 6,
+	GENERATION_STAGES_UPLOADING = 7,
+	GENERATION_STAGES_DONE = 8
 };
 
 struct OctreeNode
@@ -81,7 +82,8 @@ public:
 	inline bool is_leaf() override final { return leaf_flag; }
 	inline const bool is_world_node() const override final { return true; }
 
-	bool upload(ResourceAllocator<GLChunk>* allocator);
+	bool format(ResourceAllocator<GLChunk>* allocator);
+	bool upload();
 	void unlink();
 };
 

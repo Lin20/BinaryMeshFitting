@@ -28,6 +28,7 @@ public:
 
 	ResourceAllocator<BinaryBlock> binary_allocator;
 	ResourceAllocator<FloatBlock> float_allocator;
+	ResourceAllocator<VerticesIndicesBlock> vi_allocator;
 
 private:
 	class WorldOctree* world;
@@ -46,4 +47,5 @@ private:
 	void extract_base_meshes(std::vector<class WorldOctreeNode*>& batch);
 	void extract_copy_vis(std::vector<class WorldOctreeNode*>& batch);
 	void extract_stitches(std::vector<class WorldOctreeNode*>& batch);
+	void extract_format_meshes(std::vector<class WorldOctreeNode*>& batch);
 };
