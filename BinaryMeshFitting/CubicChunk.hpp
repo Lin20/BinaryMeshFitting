@@ -9,7 +9,7 @@ class CubicChunk : public Chunk
 {
 public:
 	BinaryBlock* binary_block;
-	SmartContainer<Cell> cells;
+	CellsBlock* cell_block;
 	DualNode octree;
 	MemoryPool<DualNode, 8192> node_pool;
 
@@ -18,7 +18,7 @@ public:
 	~CubicChunk();
 	void init(glm::vec3 pos, float size, int level, Sampler& sampler, bool produce_quads) override;
 	void generate_samples(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<FloatBlock>* float_allocator) final override;
-	void generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator) final override;
+	void generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator) final override;
 	__forceinline void calculate_cell(glm::uvec3 xyz, uint32_t next_index, Cell* result, bool force, uint8_t mask);
 	__forceinline bool calculate_dual_vertex(glm::uvec3 xyz, uint32_t next_index, DualVertex* result, bool force, uint8_t mask, glm::vec3 pos_override) final override;
 

@@ -37,6 +37,11 @@ namespace ImplicitFunctions
 		BLOCK(torus_z);
 	}
 
+	const void cuboid_block(const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out)
+	{
+		BLOCK(cuboid);
+	}
+
 	const float sphere(const float resolution, const glm::vec3& p)
 	{
 		const float r = resolution * 0.35f;

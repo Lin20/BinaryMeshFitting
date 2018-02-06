@@ -7,7 +7,7 @@
 
 //typedef std::function<float(const float world_size, const glm::vec3& p)> SamplerValueFunction;
 typedef const float(*SamplerValueFunction)(const float world_size, const glm::vec3& p);
-typedef std::function<void(const float world_size, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out)> SamplerBlockFunction;
+typedef std::function<void(const float world_size, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out, float* dest_noise)> SamplerBlockFunction;
 typedef std::function<glm::vec3(const float world_size, const glm::vec3& p, float h)> SamplerGradientFunction;
 
 struct Sampler

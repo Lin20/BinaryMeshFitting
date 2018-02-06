@@ -7,13 +7,13 @@ namespace NoiseSamplers
 	const float noise3d(const float resolution, const glm::vec3& p);
 	const void noise3d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out);
 
-	const void terrain2d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out);
-	const void terrain2d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out);
+	const void terrain2d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out, float* dest_noise);
+	const void terrain2d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise);
 
-	const void terrain3d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out);
-	const void terrain3d_pert_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out);
+	const void terrain3d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out, float* dest_noise);
+	const void terrain3d_pert_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out, float* dest_noise);
 
-	const void windy3d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out);
+	const void windy3d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out, float* dest_noise);
 
 	inline glm::vec3 implicit_gradient(SamplerValueFunction f, const float resolution, const glm::vec3& p, float h = 0.01f)
 	{
@@ -76,7 +76,7 @@ namespace NoiseSamplers
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
 		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
-		s->block = std::bind(terrain2d_block, *s, _1, _2, _3, _4, _5, _6);
+		s->block = std::bind(terrain2d_block, *s, _1, _2, _3, _4, _5, _6, _7);
 	}
 
 	inline void create_sampler_terrain_pert_2d(Sampler* s)
@@ -85,7 +85,7 @@ namespace NoiseSamplers
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
 		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
-		s->block = std::bind(terrain2d_pert_block, *s, _1, _2, _3, _4, _5, _6);
+		s->block = std::bind(terrain2d_pert_block, *s, _1, _2, _3, _4, _5, _6, _7);
 	}
 
 	inline void create_sampler_terrain_3d(Sampler* s)
@@ -94,7 +94,7 @@ namespace NoiseSamplers
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
 		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
-		s->block = std::bind(terrain3d_block, *s, _1, _2, _3, _4, _5, _6);
+		s->block = std::bind(terrain3d_block, *s, _1, _2, _3, _4, _5, _6, _7);
 	}
 
 	inline void create_sampler_terrain_pert_3d(Sampler* s)
@@ -103,7 +103,7 @@ namespace NoiseSamplers
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
 		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
-		s->block = std::bind(terrain3d_pert_block, *s, _1, _2, _3, _4, _5, _6);
+		s->block = std::bind(terrain3d_pert_block, *s, _1, _2, _3, _4, _5, _6, _7);
 	}
 
 	inline void create_sampler_windy_3d(Sampler* s)
@@ -112,6 +112,6 @@ namespace NoiseSamplers
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
 		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
-		s->block = std::bind(windy3d_block, *s, _1, _2, _3, _4, _5, _6);
+		s->block = std::bind(windy3d_block, *s, _1, _2, _3, _4, _5, _6, _7);
 	}
 }

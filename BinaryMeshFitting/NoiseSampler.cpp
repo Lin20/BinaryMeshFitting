@@ -5,10 +5,10 @@ void NOISE_BLOCK(uint32_t size_x, uint32_t size_y, uint32_t size_z, float p_x, f
 {
 	if (!out)
 		return;
-	if (!(*out))
-		*out = FastNoiseSIMD::GetEmptySet(size_x, size_y, size_z);
-	if (vectorset_out->sampleSizeX != size_x || vectorset_out->sampleSizeY != size_y || vectorset_out->sampleSizeZ != size_z)
-		vectorset_out->SetSize(size_x * size_y * size_z);
+	//if (!(*out))
+	//	*out = FastNoiseSIMD::GetEmptySet(size_x, size_y, size_z);
+	//if (vectorset_out->sampleSizeX != size_x || vectorset_out->sampleSizeY != size_y || vectorset_out->sampleSizeZ != size_z)
+	//	vectorset_out->SetSize(size_x * size_y * size_z);
 	vectorset_out->sampleScale = 0;
 	int index = 0;
 	float dx, dy, dz;
@@ -34,9 +34,9 @@ void NOISE_BLOCK_OFFSET_XZ(uint32_t size_x, uint32_t size_y, uint32_t size_z, fl
 {
 	if (!out)
 		return;
-	if (!(*out))
-		*out = FastNoiseSIMD::GetEmptySet(size_x, size_y, size_z);
-	vectorset_out->SetSize(size_x * size_y * size_z);
+	//if (!(*out))
+	//	*out = FastNoiseSIMD::GetEmptySet(size_x, size_y, size_z);
+	//vectorset_out->SetSize(size_x * size_y * size_z);
 	vectorset_out->sampleScale = 0;
 	int index = 0;
 	float dx, dy, dz;
@@ -106,11 +106,10 @@ const void NoiseSamplers::noise3d_block(const Sampler& sampler, const float reso
 	sampler.noise_sampler->FillNoiseSet(*out, vectorset_out);
 }
 
-const void NoiseSamplers::terrain2d_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out)
+const void NoiseSamplers::terrain2d_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
 {
 	const float g_scale = 0.25f;
 	const float ym = 0.5f;
-	float* dest_noise = 0;
 	NOISE_BLOCK(size.x, 1, size.z, p.x * g_scale, 0, p.z * g_scale, scale * g_scale, &dest_noise, vectorset_out);
 
 	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::SimplexFractal);
@@ -135,14 +134,13 @@ const void NoiseSamplers::terrain2d_block(const Sampler & sampler, const float r
 		}
 	}
 
-	_aligned_free(dest_noise);
+	//_aligned_free(dest_noise);
 }
 
-const void NoiseSamplers::terrain2d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out)
+const void NoiseSamplers::terrain2d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
 {
-	const float g_scale = 0.25f;
-	const float ym = 0.5f;
-	float* dest_noise = 0;
+	const float g_scale = 0.125f;
+	const float ym = 1.0f;
 	NOISE_BLOCK(size.x, 1, size.z, p.x * g_scale, 0, p.z * g_scale, scale * g_scale, &dest_noise, vectorset_out);
 
 	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::SimplexFractal);
@@ -170,18 +168,17 @@ const void NoiseSamplers::terrain2d_pert_block(const Sampler & sampler, const fl
 		}
 	}
 
-	_aligned_free(dest_noise);
+	//_aligned_free(dest_noise);
 }
 
-const void NoiseSamplers::terrain3d_block(const Sampler & sampler, const float resolution, const glm::vec3 & p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out)
+const void NoiseSamplers::terrain3d_block(const Sampler & sampler, const float resolution, const glm::vec3 & p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
 {
 	const float g_scale = 0.15f;
 	const float ym = 0.5f;
-	float* dest_noise = 0;
 	NOISE_BLOCK(size.x, size.y, size.z, p.x * g_scale, p.y * g_scale, p.z * g_scale, scale * g_scale, &dest_noise, vectorset_out);
 
 	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::SimplexFractal);
-	sampler.noise_sampler->SetFractalOctaves(8);
+	sampler.noise_sampler->SetFractalOctaves(4);
 	sampler.noise_sampler->SetFractalType(FastNoiseSIMD::FractalType::RigidMulti);
 	sampler.noise_sampler->FillNoiseSet(dest_noise, vectorset_out);
 
@@ -202,14 +199,13 @@ const void NoiseSamplers::terrain3d_block(const Sampler & sampler, const float r
 		}
 	}
 
-	_aligned_free(dest_noise);
+	//_aligned_free(dest_noise);
 }
 
-const void NoiseSamplers::terrain3d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3 & p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out)
+const void NoiseSamplers::terrain3d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3 & p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
 {
-	const float g_scale = 0.05f;
+	const float g_scale = 0.2f;
 	const float ym = 4.0f;
-	float* dest_noise = 0;
 	NOISE_BLOCK(size.x, size.y, size.z, p.x * g_scale, p.y * g_scale, p.z * g_scale, scale * g_scale, &dest_noise, vectorset_out);
 
 	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::SimplexFractal);
@@ -237,10 +233,10 @@ const void NoiseSamplers::terrain3d_pert_block(const Sampler & sampler, const fl
 		}
 	}
 
-	_aligned_free(dest_noise);
+	//_aligned_free(dest_noise);
 }
 
-const void NoiseSamplers::windy3d_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet* vectorset_out)
+const void NoiseSamplers::windy3d_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet* vectorset_out, float* dest_noise)
 {
 	const float g_scale = 0.25f;
 	const float ym = 0.5f;

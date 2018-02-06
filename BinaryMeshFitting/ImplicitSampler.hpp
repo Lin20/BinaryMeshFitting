@@ -8,6 +8,7 @@ namespace ImplicitFunctions
 	const void torus_z_block(const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out);
 	const float sphere(const float resolution, const glm::vec3& p);
 	const float cuboid(const float resolution, const glm::vec3& p);
+	const void cuboid_block(const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out);
 	const float plane_y(const float resolution, const glm::vec3& p);
 
 	inline void implicit_block(const SamplerValueFunction& f, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out)

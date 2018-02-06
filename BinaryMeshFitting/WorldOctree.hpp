@@ -51,6 +51,7 @@ public:
 
 	std::stack<WorldOctreeNode*> generate_queue;
 	std::mutex generate_mutex;
+	std::mutex chunk_mutex;
 
 	WorldWatcher watcher;
 	ResourceAllocator<GLChunk> gl_allocator;

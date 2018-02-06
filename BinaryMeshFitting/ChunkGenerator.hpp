@@ -29,6 +29,8 @@ public:
 	ResourceAllocator<BinaryBlock> binary_allocator;
 	ResourceAllocator<FloatBlock> float_allocator;
 	ResourceAllocator<VerticesIndicesBlock> vi_allocator;
+	ResourceAllocator<CellsBlock> cell_allocator;
+	ResourceAllocator<IndexesBlock> inds_allocator;
 
 private:
 	class WorldOctree* world;

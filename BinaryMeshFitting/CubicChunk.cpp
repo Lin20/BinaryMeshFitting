@@ -28,11 +28,13 @@ else if (z_block > 0) \
 
 CubicChunk::CubicChunk() : Chunk()
 {
+	cell_block = 0;
 }
 
 CubicChunk::CubicChunk(glm::vec3 pos, float size, int level, Sampler& sampler,
 	bool produce_quads) : Chunk(pos, size, level, sampler, produce_quads)
 {
+	cell_block = 0;
 }
 
 CubicChunk::~CubicChunk()
@@ -69,8 +71,9 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 	float delta = size / (float)dim;
 	const float res = sampler.world_size;
 	FloatBlock* float_block = float_allocator->new_element();
+	float_block->init(dimp1 * dimp1 * dimp1, dimp1 * dimp1 * dimp1);
 
-	sampler.block(res, pos, ivec3(dimp1, dimp1, dimp1), delta * scale, &float_block->data, &float_block->vectorset);
+	sampler.block(res, pos, ivec3(dimp1, dimp1, dimp1), delta * scale, &float_block->data, &float_block->vectorset, float_block->dest_noise);
 
 	vec3 dxyz;
 	auto f = sampler.value;
@@ -131,7 +134,7 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 	float_allocator->free_element(float_block);
 }
 
-void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator)
+void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator)
 {
 	if (!contains_mesh)
 		return;
@@ -140,6 +143,11 @@ void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>*
 	{
 		vi = vi_allocator->new_element();
 		vi->init();
+	}
+	if (!cell_block)
+	{
+		cell_block = cell_allocator->new_element();
+		cell_block->init();
 	}
 
 	uint32_t dimp1 = dim + 1;
@@ -152,7 +160,14 @@ void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>*
 	uint32_t y_per_x8 = z_per_y8 * dimp1;
 	uint32_t count8 = z_per_y8 * y_per_x8 * dim;
 
-	inds = (uint32_t*)malloc(sizeof(uint32_t) * count);
+	if (!inds_block)
+	{
+		inds_block = inds_allocator->new_element();
+		inds_block->init(count);
+	}
+	auto& inds = inds_block->inds;
+
+	//inds = (uint32_t*)malloc(sizeof(uint32_t) * count);
 	//memset(inds, 0xFFFFFFFF, sizeof(uint32_t) * count);
 
 	uint64_t* __restrict masks = (uint64_t*)malloc(sizeof(uint64_t) * count8);
@@ -404,10 +419,11 @@ void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>*
 		}
 	}
 
-	cells.scale = 4;
-	cells.resize(4096);
+	//cells.scale = 4;
+	//cells.resize(4096);
 	//vertices.resize(dim * dim * 16);
 	Cell temp;
+	auto& cells = cell_block->cells;
 	for (uint32_t x = 0; x < dim; x++)
 	{
 		for (uint32_t y = 0; y < dim; y++)
@@ -454,7 +470,7 @@ void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>*
 		}
 	}
 	//vertices.shrink();
-	cells.shrink();
+	//cells.shrink();
 
 	free(masks);
 }
@@ -598,6 +614,7 @@ void CubicChunk::calculate_valences()
 	};
 
 	auto& vertices = vi->vertices;
+	auto& inds = inds_block->inds;
 
 	vi->mesh_indexes.prepare(vertices.count * 6);
 	size_t v_count = vertices.count;
@@ -658,6 +675,7 @@ uint32_t CubicChunk::collapse_bad_cells()
 	};
 
 	auto& vertices = vi->vertices;
+	auto& inds = inds_block->inds;
 
 	for (uint32_t i = 0; i < v_count; i++)
 	{
@@ -726,8 +744,10 @@ void CubicChunk::generate_base_mesh(ResourceAllocator<VerticesIndicesBlock>* vi_
 
 	auto& vertices = vi->vertices;
 	auto& mesh_indexes = vi->mesh_indexes;
+	auto& cells = cell_block->cells;
+	auto& inds = inds_block->inds;
 
-	mesh_indexes.prepare(vertices.count * 6);
+	mesh_indexes.prepare_exact(vertices.count * 6);
 	size_t c_count = cells.count;
 	uint32_t c_inds[4];
 	for (uint32_t i = 0; i < c_count; i++)
@@ -922,6 +942,7 @@ void CubicChunk::generate_octree()
 
 	using namespace std;
 	unordered_map<uint32_t, DualNode*> octree_nodes;
+	auto& cells = cell_block->cells;
 
 	float delta = size / (float)dim;
 	int leaf_level = (int)log2((float)(dim));

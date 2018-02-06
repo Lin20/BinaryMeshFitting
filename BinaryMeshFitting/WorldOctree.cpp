@@ -33,8 +33,8 @@ WorldOctree::WorldOctree()
 {
 	using namespace std;
 	//sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::cuboid);
-	//sampler.block = ImplicitFunctions::torus_z_block;
-	NoiseSamplers::create_sampler_terrain_pert_2d(&sampler);
+	//sampler.block = ImplicitFunctions::cuboid_block;
+	NoiseSamplers::create_sampler_terrain_pert_3d(&sampler);
 	sampler.world_size = 256;
 	focus_point = glm::vec3(0, 0, 0);
 	generator_shutdown = false;
@@ -885,7 +885,7 @@ void WorldOctree::process_from_render_thread()
 	// Renderables mutex is already locked from the main render loop
 
 	const int MAX_DELETES = 1500;
-	const int MAX_UPLOADS = 100;
+	const int MAX_UPLOADS = 200;
 
 	int upload_count = 0;
 	WorldOctreeNode* n = watcher.renderables_head;

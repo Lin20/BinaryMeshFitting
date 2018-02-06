@@ -120,11 +120,11 @@ DualNode::DualNode(CubicChunk* _chunk, uint32_t _index, float _size, glm::vec3 _
 	{
 		if (_cell != nullptr)
 			cell = *_cell;
-		else if (_chunk->inds)
+		else if (_chunk->inds_block)
 		{
-			uint32_t ind = _chunk->inds[_xyz.x * dim * dim + _xyz.y * dim + _xyz.z];
+			uint32_t ind = _chunk->inds_block->inds[_xyz.x * dim * dim + _xyz.y * dim + _xyz.z];
 			if ((int32_t)ind >= 0)
-				cell = _chunk->cells[ind];
+				cell = _chunk->cell_block->cells[ind];
 			else
 				goto DefaultCell;
 		}

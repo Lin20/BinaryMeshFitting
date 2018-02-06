@@ -98,11 +98,14 @@ void ChunkGenerator::process_queue()
 		}
 	}
 
-	count = (int)local_queue.size();
-	for (int i = 0; i < count; i++)
 	{
-		if (local_queue[i]->generation_stage == GENERATION_STAGES_GENERATING)
-			generate_chunk(local_queue[i]);
+		count = (int)local_queue.size();
+		std::unique_lock<std::mutex> c_lock(world->chunk_mutex);
+		for (int i = 0; i < count; i++)
+		{
+			if (local_queue[i]->generation_stage == GENERATION_STAGES_GENERATING)
+				generate_chunk(local_queue[i]);
+		}
 	}
 
 	extract_samples(local_queue, &binary_allocator, &float_allocator);
@@ -208,7 +211,7 @@ void ChunkGenerator::extract_dual_vertices(std::vector<WorldOctreeNode*>& batch)
 		for (int i = 0; i < count; i++)
 		{
 			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
-				batch[i]->chunk->generate_dual_vertices(&vi_allocator);
+				batch[i]->chunk->generate_dual_vertices(&vi_allocator, &cell_allocator, &inds_allocator);
 		}
 	}
 

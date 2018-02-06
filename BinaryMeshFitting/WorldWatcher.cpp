@@ -203,7 +203,7 @@ void WorldWatcher::handle_dangling_check(WorldOctreeNode* n, SmartContainer<clas
 				{
 					WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
 					int flags = c->flags;
-					if (flags != NODE_FLAGS_DRAW || n->generation_stage != GENERATION_STAGES_DONE)
+					if (flags != NODE_FLAGS_DRAW || c->generation_stage != GENERATION_STAGES_DONE)
 					{
 						can_group = false;
 						break;
@@ -212,15 +212,20 @@ void WorldWatcher::handle_dangling_check(WorldOctreeNode* n, SmartContainer<clas
 
 				if (can_group)
 				{
-					for (int i = 0; i < 8; i++)
 					{
-						WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
-						unlink_renderable(c);
-						generator.binary_allocator.free_element(c->chunk->binary_block);
-						generator.vi_allocator.free_element(c->chunk->vi);
-						world->gl_allocator.free_element(c->gl_chunk);
-						world->chunk_pool.deleteElement(c->chunk);
-						world->node_pool.deleteElement(c);
+						std::unique_lock<std::mutex> c_lock(world->chunk_mutex);
+						for (int i = 0; i < 8; i++)
+						{
+							WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
+							unlink_renderable(c);
+							generator.binary_allocator.free_element(c->chunk->binary_block);
+							generator.vi_allocator.free_element(c->chunk->vi);
+							generator.cell_allocator.free_element(c->chunk->cell_block);
+							generator.inds_allocator.free_element(c->chunk->inds_block);
+							world->gl_allocator.free_element(c->gl_chunk);
+							world->chunk_pool.deleteElement(c->chunk);
+							world->node_pool.deleteElement(c);
+						}
 					}
 
 					n->flags |= NODE_FLAGS_DRAW;
@@ -330,7 +335,7 @@ void WorldWatcher::push_back_renderable(WorldOctreeNode* n)
 {
 	if (n->renderable_prev || n->renderable_next)
 	{
-		print() << "ERROR: Attempt to push back linked renderable!" << std::endl;
+		//print() << "ERROR: Attempt to push back linked renderable!" << std::endl;
 		return;
 	}
 	renderables_tail->renderable_next = n;

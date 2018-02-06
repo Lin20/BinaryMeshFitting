@@ -21,8 +21,6 @@ Chunk::Chunk(glm::vec3 pos, float size, int level, Sampler& sampler, bool produc
 
 Chunk::~Chunk()
 {
-	free(inds);
-	inds = 0;
 }
 
 void Chunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, bool produce_quads)
@@ -36,7 +34,7 @@ void Chunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, bool pr
 	this->contains_mesh = false;
 	this->mesh_offset = 0;
 
-	this->inds = 0;
+	this->inds_block = 0;
 	this->sampler = sampler;
 	this->dirty = true;
 	this->vi = 0;
