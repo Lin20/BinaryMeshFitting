@@ -23,20 +23,22 @@ GLChunk::~GLChunk()
 	destroy();
 }
 
-void GLChunk::init(bool _normals, bool _colors)
+void GLChunk::init(bool _normals, bool _colors, bool _indexed)
 {
 	if (initialized)
 		return;
 
 	normals = _normals;
 	colors = _colors;
+	indexed = _indexed;
 
 	glGenBuffers(1, &v_vbo);
 	if (normals)
 		glGenBuffers(1, &n_vbo);
 	if (colors)
 		glGenBuffers(1, &c_vbo);
-	glGenBuffers(1, &ibo);
+	if (indexed)
+		glGenBuffers(1, &ibo);
 
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(0);
@@ -54,7 +56,12 @@ void GLChunk::destroy()
 	initialized = 0;
 }
 
-bool GLChunk::set_data(SmartContainer<uint32_t>& index_data, bool unwind_verts)
+bool GLChunk::set_data()
+{
+	return set_data(p_data, n_data, c_data, 0, true);
+}
+
+bool GLChunk::set_data(SmartContainer<uint32_t>* index_data, bool unwind_verts)
 {
 	return set_data(p_data, n_data, c_data, index_data, unwind_verts);
 }
@@ -105,9 +112,9 @@ bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<uint3
 	return true;
 }
 
-bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::vec3>& norm_data, SmartContainer<glm::vec3>& color_data, SmartContainer<uint32_t>& index_data, bool unwind_verts)
+bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::vec3>& norm_data, SmartContainer<glm::vec3>& color_data, SmartContainer<uint32_t>* index_data, bool unwind_verts)
 {
-	if (!pos_data.count || !norm_data.count || !index_data.count)
+	if (!pos_data.count || !norm_data.count || (!unwind_verts && !index_data->count))
 	{
 		v_count = 0;
 		p_count = 0;
@@ -141,16 +148,16 @@ bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::
 	// Index buffer
 	if (!unwind_verts)
 	{
-		if (index_data.count < ibo_size && false)
+		if (index_data->count < ibo_size && false)
 		{
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(uint32_t) * index_data.count, index_data.elements);
+			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(uint32_t) * index_data->count, index_data->elements);
 		}
 		else
 		{
-			ibo_size = index_data.count;
+			ibo_size = index_data->count;
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * index_data.count, index_data.elements, GL_STATIC_DRAW);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * index_data->count, index_data->elements, GL_STATIC_DRAW);
 		}
 	}
 
@@ -170,7 +177,7 @@ bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::
 
 	v_count = pos_data.count;
 	if (!unwind_verts)
-		p_count = index_data.count;
+		p_count = index_data->count;
 	else
 		p_count = pos_data.count;
 
@@ -210,7 +217,7 @@ bool GLChunk::format_data(SmartContainer<DualVertex>& vert_data, SmartContainer<
 			vec3 c[4] = { vert_data[index_data[i]].color, vert_data[index_data[i + 1]].color, vert_data[index_data[i + 2]].color, vert_data[index_data[i + 3]].color };
 			p_data.push_back(p, 4);
 			c_data.push_back(c, 4);
-			
+
 			vec3 n;
 			if (smooth_normals)
 			{
@@ -231,6 +238,49 @@ bool GLChunk::format_data(SmartContainer<DualVertex>& vert_data, SmartContainer<
 			n_data.push_back(n);
 			n_data.push_back(n);
 		}
+	}
+
+	return true;
+}
+
+bool GLChunk::format_data(SmartContainer<DualVertex>& vert_data, bool smooth_normals)
+{
+	p_data.count = 0;
+	n_data.count = 0;
+	c_data.count = 0;
+	using namespace glm;
+
+	p_data.prepare_exact(vert_data.count * 4);
+	n_data.prepare_exact(vert_data.count * 4);
+	c_data.prepare_exact(vert_data.count * 4);
+
+	size_t count = vert_data.count;
+	for (size_t i = 0; i < count; i += 4)
+	{
+		vec3 p[4] = { vert_data[i].p, vert_data[i + 1].p, vert_data[i + 2].p, vert_data[i + 3].p };
+		vec3 c[4] = { vert_data[i].color, vert_data[i + 1].color, vert_data[i + 2].color, vert_data[i + 3].color };
+		p_data.push_back(p, 4);
+		c_data.push_back(c, 4);
+
+		vec3 n;
+		if (smooth_normals)
+		{
+			n = (vert_data[i].n + vert_data[i + 1].n + vert_data[i + 2].n + vert_data[i + 3].n) * 0.25f;
+		}
+		else
+		{
+			vec3 n0 = cross(normalize(vert_data[i].p - vert_data[i + 1].p), normalize(vert_data[i].p - vert_data[i + 2].p));
+			vec3 n1 = cross(normalize(vert_data[i + 2].p - vert_data[i + 3].p), normalize(vert_data[i + 2].p - vert_data[i].p));
+			if (isnan(n0.x))
+				n0 = n1;
+			if (isnan(n1.x))
+				n1 = n0;
+			n = -normalize((n0 + n1) * 0.5f);
+		}
+		n_data.push_back(n);
+		n_data.push_back(n);
+		n_data.push_back(n);
+		n_data.push_back(n);
 	}
 
 	return true;

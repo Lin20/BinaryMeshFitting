@@ -36,9 +36,9 @@ public:
 		std::unique_lock<std::mutex> _lock(_mutex, std::defer_lock);
 		if (!no_lock)
 			_lock.lock();
-		if (free_chunks.head)
+		if (free_chunks.tail)
 		{
-			T* c = (T*)free_chunks.head;
+			T* c = (T*)free_chunks.tail;
 			free_chunks.unlink(c);
 			used_chunks.push_back(c);
 			return c;

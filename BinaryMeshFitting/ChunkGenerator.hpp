@@ -10,6 +10,7 @@
 #include "SmartContainer.hpp"
 #include "ResourceAllocator.hpp"
 #include "ChunkBlocks.hpp"
+#include "WorldStitcher.hpp"
 
 class ChunkGenerator : public ThreadDebug
 {
@@ -31,6 +32,9 @@ public:
 	ResourceAllocator<VerticesIndicesBlock> vi_allocator;
 	ResourceAllocator<CellsBlock> cell_allocator;
 	ResourceAllocator<IndexesBlock> inds_allocator;
+
+	WorldStitcher stitcher;
+	std::atomic<bool> generating;
 
 private:
 	class WorldOctree* world;

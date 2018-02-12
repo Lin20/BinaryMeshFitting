@@ -11,7 +11,7 @@ public:
 	BinaryBlock* binary_block;
 	CellsBlock* cell_block;
 	DualNode octree;
-	MemoryPool<DualNode, 8192> node_pool;
+	MemoryPool<DualNode> node_pool;
 
 	CubicChunk();
 	CubicChunk(glm::vec3 pos, float size, int level, Sampler& sampler, bool produce_quads);

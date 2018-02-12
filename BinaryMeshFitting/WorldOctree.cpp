@@ -34,7 +34,7 @@ WorldOctree::WorldOctree()
 	using namespace std;
 	//sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::cuboid);
 	//sampler.block = ImplicitFunctions::cuboid_block;
-	NoiseSamplers::create_sampler_terrain_pert_3d(&sampler);
+	NoiseSamplers::create_sampler_terrain_pert_2d(&sampler);
 	sampler.world_size = 256;
 	focus_point = glm::vec3(0, 0, 0);
 	generator_shutdown = false;
@@ -202,7 +202,12 @@ bool WorldOctree::group_node(WorldOctreeNode* n)
 		n->children[i] = 0;
 	}
 
-	n->leaf_flag = true;
+	for (int i = 0; i < 8; i++)
+	{
+		n->children[i] = n->chunk->octree.children[i];
+	}
+
+	n->leaf_flag = false;
 	n->world_leaf_flag = true;
 	//n->stored_as_leaf = false;
 	//n->destroy = false;
@@ -226,9 +231,9 @@ bool WorldOctree::node_needs_split(const glm::vec3& center, WorldOctreeNode* n)
 bool WorldOctree::node_needs_group(const glm::vec3& center, WorldOctreeNode* n)
 {
 	using namespace glm;
-	if (n->level <= properties.min_level)
+	if (n->level < properties.min_level)
 		return false;
-	if (n->level >= properties.max_level)
+	if (n->level > properties.max_level)
 		return true;
 
 	float d = distance(n->middle, center);
@@ -885,7 +890,7 @@ void WorldOctree::process_from_render_thread()
 	// Renderables mutex is already locked from the main render loop
 
 	const int MAX_DELETES = 1500;
-	const int MAX_UPLOADS = 200;
+	const int MAX_UPLOADS = 400;
 
 	int upload_count = 0;
 	WorldOctreeNode* n = watcher.renderables_head;
@@ -905,6 +910,13 @@ void WorldOctree::process_from_render_thread()
 			}
 		}
 		n = n->renderable_next;
+	}
+
+	if (watcher.generator.stitcher.stage == STITCHING_STAGES_NEEDS_UPLOAD)
+	{
+		watcher.generator.stitcher.stage = STITCHING_STAGES_UPLOADING;
+		watcher.generator.stitcher.upload();
+		watcher.generator.stitcher.stage = STITCHING_STAGES_UPLOADED;
 	}
 }
 

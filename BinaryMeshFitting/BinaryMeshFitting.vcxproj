@@ -157,6 +157,7 @@
     <ClCompile Include="CubicChunk.cpp" />
     <ClCompile Include="DebugScene.cpp" />
     <ClCompile Include="DualChunk.cpp" />
+    <ClCompile Include="DynamicGLChunk.cpp" />
     <ClCompile Include="Entry.cpp" />
     <ClCompile Include="FPSCamera.cpp" />
     <ClCompile Include="GLChunk.cpp" />
@@ -185,6 +186,7 @@
     </ClCompile>
     <ClCompile Include="WorldOctree.cpp" />
     <ClCompile Include="WorldOctreeNode.cpp" />
+    <ClCompile Include="WorldStitcher.cpp" />
     <ClCompile Include="WorldWatcher.cpp" />
     <ClInclude Include="BinaryChunk.hpp" />
     <ClInclude Include="Chunk.hpp" />
@@ -195,6 +197,7 @@
     <ClInclude Include="Debug.h" />
     <ClInclude Include="DefaultOptions.h" />
     <ClInclude Include="DualChunk.hpp" />
+    <ClInclude Include="DynamicGLChunk.hpp" />
     <ClInclude Include="ResourceAllocator.hpp" />
     <ClInclude Include="GLChunk.hpp" />
     <ClInclude Include="GUI\imconfig.h" />
@@ -227,6 +230,7 @@
     </ClInclude>
     <ClInclude Include="WorldOctree.hpp" />
     <ClInclude Include="WorldOctreeNode.hpp" />
+    <ClInclude Include="WorldStitcher.hpp" />
     <ClInclude Include="WorldWatcher.hpp" />
   </ItemGroup>
   <ItemGroup>

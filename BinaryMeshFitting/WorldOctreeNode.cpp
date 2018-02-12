@@ -7,6 +7,7 @@
 
 WorldOctreeNode::WorldOctreeNode() : OctreeNode()
 {
+	world_node_flag = true;
 	chunk = 0;
 	leaf_flag = true;
 	world_leaf_flag = true;
@@ -18,6 +19,7 @@ WorldOctreeNode::WorldOctreeNode() : OctreeNode()
 
 WorldOctreeNode::WorldOctreeNode(uint32_t _index, WorldOctreeNode* _parent, float _size, glm::vec3 _pos, uint8_t _level) : OctreeNode(_index, _parent, _size, _pos, _level)
 {
+	world_node_flag = true;
 	chunk = 0;
 	middle = pos + size * 0.5f;
 	leaf_flag = true;
@@ -27,12 +29,15 @@ WorldOctreeNode::WorldOctreeNode(uint32_t _index, WorldOctreeNode* _parent, floa
 	renderable_prev = 0;
 	renderable_next = 0;
 	gl_chunk = 0;
+	force_chunk_octree = false;
 }
 
 WorldOctreeNode::WorldOctreeNode(uint32_t _index) : WorldOctreeNode()
 {
+	world_node_flag = true;
 	index = _index;
 	gl_chunk = 0;
+	force_chunk_octree = false;
 }
 
 WorldOctreeNode::~WorldOctreeNode()
@@ -75,7 +80,7 @@ bool WorldOctreeNode::upload()
 	{
 		assert(gl_chunk);
 		gl_chunk->init(true, true);
-		return gl_chunk->set_data(chunk->vi->mesh_indexes, FLAT_QUADS);
+		return gl_chunk->set_data(&chunk->vi->mesh_indexes, FLAT_QUADS);
 	}
 
 	return true;
@@ -97,6 +102,7 @@ void WorldOctreeNode::unlink()
 
 DualNode::DualNode() : OctreeNode()
 {
+	world_node_flag = false;
 	leaf_flag = true;
 	cell.mask = 0;
 	cell.edge_mask = 0;
@@ -110,6 +116,7 @@ DualNode::DualNode() : OctreeNode()
 
 DualNode::DualNode(CubicChunk* _chunk, uint32_t _index, float _size, glm::vec3 _pos, glm::ivec3 _xyz, uint8_t _level, uint32_t _int_size, Cell* _cell) : OctreeNode(_index, 0, _size, _pos, _level)
 {
+	world_node_flag = false;
 	leaf_flag = true;
 	root = _chunk;
 	uint32_t dim = _chunk->dim;

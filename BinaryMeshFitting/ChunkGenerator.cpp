@@ -19,6 +19,8 @@ ChunkGenerator::~ChunkGenerator()
 void ChunkGenerator::init(WorldOctree* _world)
 {
 	this->world = _world;
+	this->stitcher.init();
+	this->generating = false;
 	_thread = std::thread(std::bind(&ChunkGenerator::update, this));
 }
 
@@ -35,7 +37,8 @@ void ChunkGenerator::update()
 	{
 		auto now = std::chrono::system_clock::now();
 
-		process_queue();
+		//if (!generating)
+			process_queue();
 
 	End:
 		auto elapsed = std::chrono::system_clock::now() - now;
@@ -67,6 +70,10 @@ void ChunkGenerator::process_queue()
 		std::unique_lock<std::mutex> lock(_mutex);
 		local_queue = queue;
 		queue.clear();
+	}
+	if (local_queue.size() == 0)
+	{
+		return;
 	}
 
 	// Trim the local queue
@@ -118,11 +125,23 @@ void ChunkGenerator::process_queue()
 	{
 		local_queue[i]->generation_stage = GENERATION_STAGES_NEEDS_UPLOAD;
 	}
+
+	if (stitcher.stage == STITCHING_STAGES_READY)
+	{
+		std::unique_lock<std::mutex> stitcher_lock(stitcher._mutex);
+		stitcher.stitch_all(&world->octree);
+		stitcher.format();
+		stitcher.stage = STITCHING_STAGES_NEEDS_UPLOAD;
+	}
+
+	//assert(stitcher.stage == STITCHING_STAGES_READY);
 }
 
 void ChunkGenerator::add_batch(SmartContainer<WorldOctreeNode*>& batch)
 {
 	std::unique_lock<std::mutex> lock(_mutex);
+
+	generating = true;
 
 	int count = (int)batch.count;
 	for (int i = 0; i < count; i++)

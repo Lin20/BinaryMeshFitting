@@ -14,6 +14,7 @@ public:
 	bool initialized;
 	bool normals;
 	bool colors;
+	bool indexed;
 
 	// Important -- Do not change structure!
 	GLuint vao;
@@ -33,10 +34,12 @@ public:
 
 	GLChunk();
 	~GLChunk();
-	void init(bool _normals, bool _colors);
+	void init(bool _normals, bool _colors, bool _indexed = true);
 	void destroy();
-	bool set_data(SmartContainer<uint32_t>& index_data, bool unwind_verts);
+	bool set_data();
+	bool set_data(SmartContainer<uint32_t>* index_data, bool unwind_verts);
 	bool set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<uint32_t>& index_data);
-	bool set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::vec3>& norm_data, SmartContainer<glm::vec3>& color_data, SmartContainer<uint32_t>& index_data, bool unwind_verts);
+	bool set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::vec3>& norm_data, SmartContainer<glm::vec3>& color_data, SmartContainer<uint32_t>* index_data, bool unwind_verts);
 	bool format_data(SmartContainer<DualVertex>& vert_data, SmartContainer<uint32_t>& index_data, bool unwind_verts, bool smooth_normals);
+	bool format_data(SmartContainer<DualVertex>& vert_data, bool smooth_normals);
 };

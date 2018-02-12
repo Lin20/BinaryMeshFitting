@@ -38,11 +38,15 @@ typedef enum GENERATION_STAGES
 	GENERATION_STAGES_NEEDS_FORMAT = 5,
 	GENERATION_STAGES_NEEDS_UPLOAD = 6,
 	GENERATION_STAGES_UPLOADING = 7,
-	GENERATION_STAGES_DONE = 8
+	GENERATION_STAGES_AWAITING_STITCHING = 8,
+	GENERATION_STAGES_AWAITING_STITCHING_UPLOAD = 9,
+	GENERATION_STAGES_DONE = 10
 };
 
 struct OctreeNode
 {
+	bool world_node_flag;
+	bool leaf_flag;
 	uint32_t index;
 	float size;
 	uint8_t level;
@@ -56,8 +60,8 @@ struct OctreeNode
 	void generate_outline(SmartContainer<glm::vec3>& v_pos, SmartContainer<uint32_t>& inds);
 	OctreeNode* get_node_at(glm::vec3 p);
 
-	virtual bool is_leaf() = 0;
-	virtual const bool is_world_node() const = 0;
+	inline const bool is_leaf() { return leaf_flag; }
+	inline const bool is_world_node() { return world_node_flag; }
 };
 
 class WorldOctreeNode : public OctreeNode
@@ -69,8 +73,8 @@ public:
 	std::atomic<int> generation_stage;
 	CubicChunk* chunk;
 	glm::vec3 middle;
-	bool leaf_flag;
 	bool world_leaf_flag;
+	bool force_chunk_octree;
 	GLChunk* gl_chunk;
 
 	WorldOctreeNode();
@@ -79,8 +83,6 @@ public:
 	~WorldOctreeNode();
 
 	void init(uint32_t _index, WorldOctreeNode* _parent, float _size, glm::vec3 _pos, uint8_t _level);
-	inline bool is_leaf() override final { return leaf_flag; }
-	inline const bool is_world_node() const override final { return true; }
 
 	bool format(ResourceAllocator<GLChunk>* allocator);
 	bool upload();
@@ -95,13 +97,9 @@ public:
 	uint32_t i_size;
 	glm::ivec3 xyz;
 	Cell cell;
-	bool leaf_flag;
 
 	DualNode();
 	DualNode(CubicChunk* _chunk, uint32_t _index, float _size, glm::vec3 _pos, glm::ivec3 _xyz, uint8_t _level, uint32_t _int_size, Cell* _cell);
-
-	inline bool is_leaf() override final { return leaf_flag; }
-	inline const bool is_world_node() const override final { return false; }
 
 	inline bool operator==(const DualNode& other) const
 	{

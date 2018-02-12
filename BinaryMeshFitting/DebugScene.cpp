@@ -385,7 +385,7 @@ int DebugScene::update(RenderInput* input)
 	if(update_focus)
 	{
 		std::unique_lock<std::mutex> l(world.watcher._mutex);
-		world.watcher.focus_pos = camera.v_position;
+		world.watcher.focus_pos = camera.v_position + camera.v_velocity * 0.0f;
 	}
 
 	return 0;
@@ -509,6 +509,12 @@ void DebugScene::render_world()
 			n = n->renderable_next;
 		}
 
+		glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
+		if (!flat_quads || !QUADS)
+			glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), world.watcher.generator.stitcher.gl_chunk.p_count, GL_UNSIGNED_INT, 0);
+		else
+			glDrawArrays(GL_QUADS, 0, world.watcher.generator.stitcher.gl_chunk.p_count);
+
 		//glDisable(GL_POLYGON_OFFSET_FILL);
 	}
 	if (fillmode == FILL_MODE_BOTH)
@@ -542,6 +548,12 @@ void DebugScene::render_world()
 			}
 			n = n->renderable_next;
 		}
+
+		glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
+		if (!flat_quads || !QUADS)
+			glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), world.watcher.generator.stitcher.gl_chunk.p_count, GL_UNSIGNED_INT, 0);
+		else
+			glDrawArrays(GL_QUADS, 0, world.watcher.generator.stitcher.gl_chunk.p_count);
 	}
 
 	glBindVertexArray(0);

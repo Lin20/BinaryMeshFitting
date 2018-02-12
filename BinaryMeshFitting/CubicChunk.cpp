@@ -71,7 +71,7 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 	float delta = size / (float)dim;
 	const float res = sampler.world_size;
 	FloatBlock* float_block = float_allocator->new_element();
-	float_block->init(dimp1 * dimp1 * dimp1, dimp1 * dimp1 * dimp1);
+	float_block->init(dimp1 * dimp1 * dimp1, dimp1 * dimp1);
 
 	sampler.block(res, pos, ivec3(dimp1, dimp1, dimp1), delta * scale, &float_block->data, &float_block->vectorset, float_block->dest_noise);
 
@@ -151,6 +151,7 @@ void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>*
 	}
 
 	uint32_t dimp1 = dim + 1;
+
 	uint32_t count = dim * dim * dim;
 	uint32_t countp1 = dimp1 * dimp1 * dimp1;
 	uint32_t z_per_y = ((dim + 32)) / 32;
@@ -755,7 +756,7 @@ void CubicChunk::generate_base_mesh(ResourceAllocator<VerticesIndicesBlock>* vi_
 		Cell& c = cells[i];
 		if (c.xyz.x == 27 && c.xyz.y == 5 && c.xyz.z == 0)
 		{
-			printf("F");
+			//printf("F");
 		}
 		// TODO: Get xyz from cell vertices
 		uvec3 xyz = c.xyz;
