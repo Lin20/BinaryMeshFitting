@@ -43,24 +43,36 @@ void WorldWatcher::update()
 			std::unique_lock<std::mutex> lock(_mutex);
 			pos = focus_pos;
 		}
-		if (generator.stitcher.stage == STITCHING_STAGES_UPLOADED)
-		{
-			generator.generating = false;
-			generator.stitcher.stage = STITCHING_STAGES_READY;
-		}
 
 		dirty_batch.count = 0;
 		generate_batch.count = 0;
-		if (!generator.generating)
+		if (generator.stitcher.stage == STITCHING_STAGES_READY)
 		{
-			std::unique_lock<std::mutex> stitcher_lock(generator.stitcher._mutex);
-			check_leaves(dirty_batch);
-			//print() << "Dirty batch size of " << (int)dirty_batch.count << ". " << std::endl;
-			process_batch(dirty_batch, generate_batch);
+			bool enable_stitching = world->properties.enable_stitching;
+			{
+				std::unique_lock<std::mutex> renderables_lock(renderables_mutex);
+				check_leaves(dirty_batch);
+				process_batch(dirty_batch, generate_batch);
+			}
 			if (generate_batch.count > 0)
-				generator.add_batch(generate_batch);
+			{
+				generator.process_queue(generate_batch);
+				if (enable_stitching)
+				{
+					generator.stitcher.stitch_all(&world->octree);
+					generator.stitcher.format();
+				}
+
+				{
+					std::unique_lock<std::mutex> renderables_lock(renderables_mutex);
+					upload_cv.wait(renderables_lock);
+
+					post_process_batch(dirty_batch);
+					if (enable_stitching)
+						generator.stitcher.stage = STITCHING_STAGES_NEEDS_UPLOAD;
+				}
+			}
 		}
-		//print() << "Generator batch size of " << (int)generate_batch.count << ". " << std::endl;
 
 	End:
 		auto elapsed = std::chrono::system_clock::now() - now;
@@ -79,6 +91,10 @@ void WorldWatcher::stop()
 	if (_thread.joinable())
 	{
 		_stop = true;
+		{
+			std::unique_lock<std::mutex> renderables_lock(renderables_mutex);
+			upload_cv.notify_one();
+		}
 		_thread.join();
 		std::cout << "done." << std::endl;
 	}
@@ -90,29 +106,16 @@ void WorldWatcher::stop()
 
 void WorldWatcher::check_leaves(SmartContainer<class WorldOctreeNode*>& batch_out)
 {
-	int stitch_stage = generator.stitcher.stage;
 	WorldOctreeNode* n = renderables_head;
 	while (n)
 	{
-		if (stitch_stage == STITCHING_STAGES_READY)
+		if (world->node_needs_split(focus_pos, n))
 		{
-			if (world->node_needs_split(focus_pos, n))
-			{
-				handle_split_check(n, batch_out);
-			}
-			else if (n->world_leaf_flag && n->parent && world->node_needs_group(focus_pos, (WorldOctreeNode*)n->parent))
-			{
-				handle_group_check((WorldOctreeNode*)n->parent, batch_out);
-				handle_dangling_check(n, batch_out);
-			}
-			else
-			{
-				handle_dangling_check(n, batch_out);
-			}
+			handle_split_check(n, batch_out);
 		}
-		else
+		else if (n->world_leaf_flag && n->parent && world->node_needs_group(focus_pos, (WorldOctreeNode*)n->parent))
 		{
-			handle_dangling_check(n, batch_out);
+			handle_group_check((WorldOctreeNode*)n->parent, batch_out);
 		}
 		n = n->renderable_next;
 	}
@@ -122,22 +125,21 @@ void WorldWatcher::handle_split_check(WorldOctreeNode* n, SmartContainer<class W
 {
 	int flags = n->flags;
 	int stage = n->generation_stage;
-	if (n->world_leaf_flag && !(flags & NODE_FLAGS_GENERATING) && !(flags & NODE_FLAGS_SPLIT) && !(flags & NODE_FLAGS_DIRTY) && !(flags & NODE_FLAGS_DRAW_CHILDREN) && (flags & NODE_FLAGS_DRAW) && !(flags & NODE_FLAGS_GROUP) && !(flags & NODE_FLAGS_SUPERCEDED))
+	if (n->world_leaf_flag && !(flags & NODE_FLAGS_SPLIT) && !(flags & NODE_FLAGS_DRAW_CHILDREN) && (flags & NODE_FLAGS_DRAW) && !(flags & NODE_FLAGS_GROUP) && !(flags & NODE_FLAGS_SUPERCEDED))
 	{
 		n->flags |= NODE_FLAGS_SPLIT;
 		if (n->flags & NODE_FLAGS_GROUP)
 			n->flags ^= NODE_FLAGS_GROUP;
+		n->force_chunk_octree = false;
 		batch_out.push_back(n);
 	}
-	else
-		handle_dangling_check(n, batch_out);
 }
 
 void WorldWatcher::handle_group_check(WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out)
 {
 	int flags = n->flags;
 	int stage = n->generation_stage;
-	if (!n->world_leaf_flag && !(flags & NODE_FLAGS_GENERATING) && !(flags & NODE_FLAGS_GROUP) && !(flags & NODE_FLAGS_DIRTY) && (flags & NODE_FLAGS_SUPERCEDED))
+	if (!n->world_leaf_flag && !(flags & NODE_FLAGS_GROUP) && (flags & NODE_FLAGS_SUPERCEDED))
 	{
 		bool can_group = true;
 		for (int i = 0; i < 8; i++)
@@ -152,6 +154,7 @@ void WorldWatcher::handle_group_check(WorldOctreeNode* n, SmartContainer<class W
 		if (can_group)
 		{
 			n->flags |= NODE_FLAGS_GROUP;
+			n->force_chunk_octree = true;
 			batch_out.push_back(n);
 		}
 	}
@@ -162,108 +165,66 @@ void WorldWatcher::handle_dangling_check(WorldOctreeNode* n, SmartContainer<clas
 	int flags = n->flags;
 	int stage = n->generation_stage;
 
-	if ((flags & NODE_FLAGS_GENERATING) && stage == GENERATION_STAGES_DONE && !(flags & NODE_FLAGS_SUPERCEDED))
-	{
-		//if (!n->parent)
-		//	n->generation_stage = GENERATION_STAGES_DONE;
-		n->flags ^= NODE_FLAGS_GENERATING;
-	}
-	if ((flags & NODE_FLAGS_DIRTY) && stage == GENERATION_STAGES_UNHANDLED)
-	{
-		n->generation_stage = GENERATION_STAGES_WATCHER_QUEUED;
-		batch_out.push_back(n);
-	}
-	else if (flags & NODE_FLAGS_DRAW_CHILDREN)
+	if (flags & NODE_FLAGS_DRAW_CHILDREN)
 	{
 		int stitch_stage = generator.stitcher.stage;
-		if (stitch_stage == STITCHING_STAGES_READY)
+
+		for (int i = 0; i < 8; i++)
 		{
-			bool can_draw_children = true;
-			for (int i = 0; i < 8; i++)
-			{
-				WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
-				int c_flags = c->flags;
-				if (!(c_flags & NODE_FLAGS_GENERATING) && c->generation_stage == GENERATION_STAGES_DONE)
-				{
-					continue;
-				}
-				else
-				{
-					can_draw_children = false;
-					break;
-				}
-			}
-			if (can_draw_children)
-			{
-				std::unique_lock<std::mutex> renderables_lock(renderables_mutex);
-				for (int i = 0; i < 8; i++)
-				{
-					WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
-					if (!c->chunk->contains_mesh)
-					{
-					}
-					c->flags |= NODE_FLAGS_DRAW;
-				}
-				n->flags &= ~NODE_FLAGS_DRAW;
-				n->flags &= ~NODE_FLAGS_DRAW_CHILDREN;
-				n->flags |= NODE_FLAGS_SUPERCEDED;
-				n->force_chunk_octree = false;
-				if (n->gl_chunk)
-				{
-					world->gl_allocator.free_element(n->gl_chunk);
-					n->gl_chunk = 0;
-				}
-				n->generation_stage = GENERATION_STAGES_NEEDS_FORMAT;
-				batch_out.push_back(n);
-			}
+			WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
+			c->flags |= NODE_FLAGS_DRAW;
 		}
+		n->flags &= ~NODE_FLAGS_DRAW;
+		n->flags &= ~NODE_FLAGS_DRAW_CHILDREN;
+		n->flags |= NODE_FLAGS_SUPERCEDED;
+		n->force_chunk_octree = false;
+		if (n->gl_chunk)
+		{
+			world->gl_allocator.free_element(n->gl_chunk);
+			n->gl_chunk = 0;
+		}
+		n->generation_stage = GENERATION_STAGES_NEEDS_FORMAT;
+		batch_out.push_back(n);
 	}
 	else if ((flags & NODE_FLAGS_SUPERCEDED) && (flags & NODE_FLAGS_GENERATING))
 	{
-		if (stage == GENERATION_STAGES_DONE)
+		bool can_group = true;
+
+		for (int i = 0; i < 8; i++)
+		{
+			WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
+			int flags = c->flags;
+			if (flags != NODE_FLAGS_DRAW || c->generation_stage != GENERATION_STAGES_DONE)
+			{
+				can_group = false;
+				break;
+			}
+		}
+
+		if (can_group)
 		{
 			{
-				std::unique_lock<std::mutex> renderables_lock(renderables_mutex);
-
-				bool can_group = true;
-
+				std::unique_lock<std::mutex> c_lock(world->chunk_mutex);
 				for (int i = 0; i < 8; i++)
 				{
 					WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
-					int flags = c->flags;
-					if (flags != NODE_FLAGS_DRAW || c->generation_stage != GENERATION_STAGES_DONE)
-					{
-						can_group = false;
-						break;
-					}
-				}
-
-				if (can_group)
-				{
-					{
-						std::unique_lock<std::mutex> c_lock(world->chunk_mutex);
-						for (int i = 0; i < 8; i++)
-						{
-							WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
-							unlink_renderable(c);
-							generator.binary_allocator.free_element(c->chunk->binary_block);
-							generator.vi_allocator.free_element(c->chunk->vi);
-							generator.cell_allocator.free_element(c->chunk->cell_block);
-							generator.inds_allocator.free_element(c->chunk->inds_block);
-							world->gl_allocator.free_element(c->gl_chunk);
-							world->chunk_pool.deleteElement(c->chunk);
-							world->node_pool.deleteElement(c);
-						}
-					}
-
-					n->flags |= NODE_FLAGS_DRAW;
-					n->flags ^= NODE_FLAGS_SUPERCEDED;
-					n->flags ^= NODE_FLAGS_GENERATING;
-					n->force_chunk_octree = false;
-
-					world->group_node(n);
+					unlink_renderable(c);
+					generator.binary_allocator.free_element(c->chunk->binary_block);
+					generator.vi_allocator.free_element(c->chunk->vi);
+					generator.cell_allocator.free_element(c->chunk->cell_block);
+					generator.inds_allocator.free_element(c->chunk->inds_block);
+					world->gl_allocator.free_element(c->gl_chunk);
+					world->chunk_pool.deleteElement(c->chunk);
+					world->node_pool.deleteElement(c);
 				}
 			}
+
+			n->flags |= NODE_FLAGS_DRAW;
+			n->flags ^= NODE_FLAGS_SUPERCEDED;
+			n->flags ^= NODE_FLAGS_GENERATING;
+			n->force_chunk_octree = false;
+
+			world->group_node(n);
 		}
 	}
 }
@@ -279,46 +240,85 @@ void WorldWatcher::process_batch(SmartContainer<class WorldOctreeNode*>& batch_i
 
 		if (flags & NODE_FLAGS_DESTROY)
 		{
-			std::unique_lock<std::mutex> r_lock(renderables_mutex);
 			unlink_renderable(n);
-		}
-		else if ((flags & NODE_FLAGS_SUPERCEDED) && !(flags & NODE_FLAGS_GROUP))
-		{
-			if (!(flags & NODE_FLAGS_GENERATING))
-			{
-				std::unique_lock<std::mutex> r_lock(renderables_mutex);
-				unlink_renderable(n);
-			}
 		}
 		else if (flags & NODE_FLAGS_SPLIT)
 		{
 			split_node(n, batch_out);
-			n->flags ^= NODE_FLAGS_SPLIT;
+			//n->flags ^= NODE_FLAGS_SPLIT;
 		}
 		else if (flags & NODE_FLAGS_GROUP)
 		{
 			group_node_1(n, batch_out);
-			n->flags ^= NODE_FLAGS_GROUP;
+			//n->flags ^= NODE_FLAGS_GROUP;
 		}
-		else if ((flags & NODE_FLAGS_DIRTY) && stage == GENERATION_STAGES_WATCHER_QUEUED)
+	}
+}
+
+void WorldWatcher::post_process_batch(SmartContainer<class WorldOctreeNode*>& batch_in)
+{
+	int count = (int)batch_in.count;
+	for (int i = 0; i < count; i++)
+	{
+		WorldOctreeNode* n = batch_in[i];
+		int flags = n->flags;
+		int stage = n->generation_stage;
+
+		if (flags & NODE_FLAGS_SPLIT)
 		{
-			batch_out.push_back(n);
-			n->flags ^= NODE_FLAGS_DIRTY;
-			n->generation_stage = GENERATION_STAGES_GENERATOR_QUEUED;
+			for (int i = 0; i < 8; i++)
+			{
+				WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
+				c->flags |= NODE_FLAGS_DRAW;
+			}
+			n->flags &= ~NODE_FLAGS_DRAW;
+			n->flags |= NODE_FLAGS_SUPERCEDED;
+			if (n->gl_chunk)
+			{
+				world->gl_allocator.free_element(n->gl_chunk);
+				n->gl_chunk = 0;
+			}
+			n->generation_stage = GENERATION_STAGES_DONE;
+			n->flags ^= NODE_FLAGS_SPLIT;
+			unlink_renderable(n);
+		}
+		else if (flags & NODE_FLAGS_GROUP)
+		{
+			{
+				std::unique_lock<std::mutex> c_lock(world->chunk_mutex);
+				for (int i = 0; i < 8; i++)
+				{
+					WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
+					unlink_renderable(c);
+					generator.binary_allocator.free_element(c->chunk->binary_block);
+					generator.vi_allocator.free_element(c->chunk->vi);
+					generator.cell_allocator.free_element(c->chunk->cell_block);
+					generator.inds_allocator.free_element(c->chunk->inds_block);
+					world->gl_allocator.free_element(c->gl_chunk);
+					world->chunk_pool.deleteElement(c->chunk);
+					world->node_pool.deleteElement(c);
+				}
+			}
+
+			n->flags |= NODE_FLAGS_DRAW;
+			n->flags &= ~(NODE_FLAGS_SUPERCEDED | NODE_FLAGS_GENERATING);
+
+			world->group_node(n);
+
+			n->flags ^= NODE_FLAGS_GROUP;
 		}
 	}
 }
 
 void WorldWatcher::split_node(WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& generate_batch_out)
 {
-	n->flags &= ~NODE_FLAGS_DRAW;
-	n->flags |= NODE_FLAGS_DRAW_CHILDREN;
+	//n->flags &= ~NODE_FLAGS_DRAW;
+	//n->flags |= NODE_FLAGS_DRAW_CHILDREN;
 
-	n->force_chunk_octree = true;
+	//n->force_chunk_octree = true;
 	world->split_node(n);
 
 	{
-		std::unique_lock<std::mutex> renderables_lock(renderables_mutex);
 		for (int i = 0; i < 8; i++)
 		{
 			WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
@@ -328,7 +328,8 @@ void WorldWatcher::split_node(WorldOctreeNode* n, SmartContainer<class WorldOctr
 			}
 			//assert(c);
 			c->flags = NODE_FLAGS_DIRTY;
-			//generate_batch_out.push_back(c);
+			c->generation_stage = GENERATION_STAGES_GENERATING;
+			generate_batch_out.push_back(c);
 			push_back_renderable(c);
 		}
 	}
@@ -336,15 +337,14 @@ void WorldWatcher::split_node(WorldOctreeNode* n, SmartContainer<class WorldOctr
 
 void WorldWatcher::group_node_1(WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& generate_batch_out)
 {
-	n->flags |= NODE_FLAGS_GENERATING;
-	n->force_chunk_octree = true;
+	//n->flags |= NODE_FLAGS_GENERATING;
+	//n->force_chunk_octree = true;
 
 	generate_batch_out.push_back(n);
-	std::unique_lock<std::mutex> renderables_lock(renderables_mutex);
 	push_back_renderable(n);
 }
 
-void WorldWatcher::group_node_2(WorldOctreeNode * n)
+void WorldWatcher::process_stitching(SmartContainer<class WorldOctreeNode*>& batch_in)
 {
 }
 
@@ -366,7 +366,7 @@ void WorldWatcher::push_back_renderable(WorldOctreeNode* n)
 {
 	if (n->renderable_prev || n->renderable_next)
 	{
-		//print() << "ERROR: Attempt to push back linked renderable!" << std::endl;
+		print() << "ERROR: Attempt to push back linked renderable!" << std::endl;
 		return;
 	}
 	renderables_tail->renderable_next = n;

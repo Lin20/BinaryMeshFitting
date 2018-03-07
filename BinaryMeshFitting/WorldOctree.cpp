@@ -12,6 +12,7 @@
 #include <thread>
 
 #include <omp.h>
+
 #define DEFAULT_THREADS 4
 #define DEFAULT_ITERATIONS 0
 #define DEFAULT_RESOLUTION 32
@@ -22,10 +23,11 @@ __declspec(noinline) WorldProperties::WorldProperties()
 	group_multiplier = split_multiplier * 2.0f;
 	size_modifier = 0.0f;
 	max_level = 7;
-	min_level = 0;
+	min_level = 1;
 	num_threads = DEFAULT_THREADS;
 	process_iters = DEFAULT_ITERATIONS;
 	chunk_resolution = DEFAULT_RESOLUTION;
+	enable_stitching = true;
 }
 
 
@@ -34,7 +36,7 @@ WorldOctree::WorldOctree()
 	using namespace std;
 	//sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::cuboid);
 	//sampler.block = ImplicitFunctions::cuboid_block;
-	NoiseSamplers::create_sampler_terrain_pert_2d(&sampler);
+	NoiseSamplers::create_sampler_terrain_pert_3d(&sampler);
 	sampler.world_size = 256;
 	focus_point = glm::vec3(0, 0, 0);
 	generator_shutdown = false;
@@ -898,25 +900,39 @@ void WorldOctree::process_from_render_thread()
 	{
 		int flags = n->flags;
 		int stage = n->generation_stage;
-		if ((flags & NODE_FLAGS_GENERATING) && stage == GENERATION_STAGES_NEEDS_UPLOAD)
+		if (stage == GENERATION_STAGES_NEEDS_UPLOAD)
 		{
+			// If there is still one more to be uploaded, abandon the loop.
+			// This way we can upload the max chunks in the unlikely case there are exactly that many chunks to be uploaded
+			if (upload_count == MAX_UPLOADS)
+			{
+				upload_count++;
+				break;
+			}
 			n->generation_stage = GENERATION_STAGES_UPLOADING;
 			n->upload();
 			n->generation_stage = GENERATION_STAGES_DONE;
 			if (n->gl_chunk && n->gl_chunk->p_count > 0 && n->gl_chunk->v_count > 0)
 			{
-				if (upload_count++ >= MAX_UPLOADS)
-					break;
+				upload_count++;
 			}
+			else if (!upload_count)
+				upload_count++;
 		}
 		n = n->renderable_next;
+	}
+
+	if (!upload_count || (upload_count > 0 && upload_count <= MAX_UPLOADS))
+	{
+		// Notify the main watcher thread that the uploading has finished so it can move on
+		watcher.upload_cv.notify_one();
 	}
 
 	if (watcher.generator.stitcher.stage == STITCHING_STAGES_NEEDS_UPLOAD)
 	{
 		watcher.generator.stitcher.stage = STITCHING_STAGES_UPLOADING;
 		watcher.generator.stitcher.upload();
-		watcher.generator.stitcher.stage = STITCHING_STAGES_UPLOADED;
+		watcher.generator.stitcher.stage = STITCHING_STAGES_READY;
 	}
 }
 

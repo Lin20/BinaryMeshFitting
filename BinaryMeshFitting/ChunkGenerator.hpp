@@ -19,13 +19,11 @@ public:
 	~ChunkGenerator();
 
 	void init(class WorldOctree* _world);
-	void update();
-	void stop();
 
-	void process_queue();
-	void add_batch(SmartContainer<class WorldOctreeNode*>& batch);
+	void process_queue(SmartContainer<WorldOctreeNode*>& batch);
 
 	std::mutex _mutex;
+	std::condition_variable _cv;
 
 	ResourceAllocator<BinaryBlock> binary_allocator;
 	ResourceAllocator<FloatBlock> float_allocator;
@@ -34,24 +32,21 @@ public:
 	ResourceAllocator<IndexesBlock> inds_allocator;
 
 	WorldStitcher stitcher;
-	std::atomic<bool> generating;
 
 private:
 	class WorldOctree* world;
-	std::thread _thread;
-	std::atomic<bool> _stop;
 
 	std::vector<class WorldOctreeNode*> queue;
 
 	bool update_still_needed(class WorldOctreeNode* n);
 	void generate_chunk(class WorldOctreeNode* n);
 
-	void extract_samples(std::vector<class WorldOctreeNode*>& batch, ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<FloatBlock>* float_allocator);
-	void extract_filter(std::vector<class WorldOctreeNode*>& batch);
-	void extract_dual_vertices(std::vector<class WorldOctreeNode*>& batch);
-	void extract_octrees(std::vector<class WorldOctreeNode*>& batch);
-	void extract_base_meshes(std::vector<class WorldOctreeNode*>& batch);
-	void extract_copy_vis(std::vector<class WorldOctreeNode*>& batch);
-	void extract_stitches(std::vector<class WorldOctreeNode*>& batch);
-	void extract_format_meshes(std::vector<class WorldOctreeNode*>& batch);
+	void extract_samples(SmartContainer<class WorldOctreeNode*>& batch, ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<FloatBlock>* float_allocator);
+	void extract_filter(SmartContainer<class WorldOctreeNode*>& batch);
+	void extract_dual_vertices(SmartContainer<class WorldOctreeNode*>& batch);
+	void extract_octrees(SmartContainer<class WorldOctreeNode*>& batch);
+	void extract_base_meshes(SmartContainer<class WorldOctreeNode*>& batch);
+	void extract_copy_vis(SmartContainer<class WorldOctreeNode*>& batch);
+	void extract_stitches(SmartContainer<class WorldOctreeNode*>& batch);
+	void extract_format_meshes(SmartContainer<class WorldOctreeNode*>& batch);
 };

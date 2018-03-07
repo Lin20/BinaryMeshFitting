@@ -71,7 +71,7 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 	float delta = size / (float)dim;
 	const float res = sampler.world_size;
 	FloatBlock* float_block = float_allocator->new_element();
-	float_block->init(dimp1 * dimp1 * dimp1, dimp1 * dimp1);
+	float_block->init(dimp1 * dimp1 * dimp1, dimp1 * dimp1 * dimp1);
 
 	sampler.block(res, pos, ivec3(dimp1, dimp1, dimp1), delta * scale, &float_block->data, &float_block->vectorset, float_block->dest_noise);
 
@@ -136,14 +136,14 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 
 void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator)
 {
-	if (!contains_mesh)
-		return;
-
 	if (!vi)
 	{
 		vi = vi_allocator->new_element();
 		vi->init();
 	}
+	if (!contains_mesh)
+		return;
+
 	if (!cell_block)
 	{
 		cell_block = cell_allocator->new_element();

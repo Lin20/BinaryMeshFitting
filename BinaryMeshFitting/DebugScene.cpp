@@ -231,7 +231,6 @@ DebugScene::DebugScene(RenderInput* render_input)
 DebugScene::~DebugScene()
 {
 	world.watcher.stop();
-	world.watcher.generator.stop();
 
 	delete dual_chunk;
 	delete binary_chunk;
@@ -495,7 +494,7 @@ void DebugScene::render_world()
 		while (n)
 		{
 			int flags = n->flags;
-			if (((flags & NODE_FLAGS_DRAW) || (flags & NODE_FLAGS_DRAW_CHILDREN)) && !(flags & NODE_FLAGS_GENERATING))
+			if (flags & NODE_FLAGS_DRAW)
 			{
 				if (n->gl_chunk && n->gl_chunk->p_count != 0)
 				{
@@ -509,11 +508,14 @@ void DebugScene::render_world()
 			n = n->renderable_next;
 		}
 
-		glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
-		if (!flat_quads || !QUADS)
-			glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), world.watcher.generator.stitcher.gl_chunk.p_count, GL_UNSIGNED_INT, 0);
-		else
-			glDrawArrays(GL_QUADS, 0, world.watcher.generator.stitcher.gl_chunk.p_count);
+		if (world.properties.enable_stitching)
+		{
+			glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
+			if (!flat_quads || !QUADS)
+				glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), world.watcher.generator.stitcher.gl_chunk.p_count, GL_UNSIGNED_INT, 0);
+			else
+				glDrawArrays(GL_QUADS, 0, world.watcher.generator.stitcher.gl_chunk.p_count);
+		}
 
 		//glDisable(GL_POLYGON_OFFSET_FILL);
 	}
@@ -535,7 +537,7 @@ void DebugScene::render_world()
 		while (n)
 		{
 			int flags = n->flags;
-			if (((flags & NODE_FLAGS_DRAW) || (flags & NODE_FLAGS_DRAW_CHILDREN)) && !(flags & NODE_FLAGS_GENERATING))
+			if (flags & NODE_FLAGS_DRAW)
 			{
 				if (n->gl_chunk && n->gl_chunk->p_count != 0)
 				{
@@ -549,11 +551,14 @@ void DebugScene::render_world()
 			n = n->renderable_next;
 		}
 
-		glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
-		if (!flat_quads || !QUADS)
-			glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), world.watcher.generator.stitcher.gl_chunk.p_count, GL_UNSIGNED_INT, 0);
-		else
-			glDrawArrays(GL_QUADS, 0, world.watcher.generator.stitcher.gl_chunk.p_count);
+		if (world.properties.enable_stitching)
+		{
+			glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
+			if (!flat_quads || !QUADS)
+				glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), world.watcher.generator.stitcher.gl_chunk.p_count, GL_UNSIGNED_INT, 0);
+			else
+				glDrawArrays(GL_QUADS, 0, world.watcher.generator.stitcher.gl_chunk.p_count);
+		}
 	}
 
 	glBindVertexArray(0);
@@ -602,16 +607,21 @@ void DebugScene::key_callback(int key, int scancode, int action, int mods)
 			camera.v_position = world.focus_point;
 		}
 
-		if (key == GLFW_KEY_SPACE)
+		if (key == GLFW_KEY_PAGE_UP)
 		{
-			world.destroy_leaves();
-			world.focus_point = camera.v_position;
-			world.init(256);
-			world.split_leaves();
-			world.extract_all();
-			world.color_all();
-			world.process_all();
-			world.upload_all();
+			world.properties.num_threads = min(16, world.properties.num_threads + 1);
+		}
+		if (key == GLFW_KEY_PAGE_DOWN)
+		{
+			world.properties.num_threads = max(1, world.properties.num_threads - 1);
+		}
+		if (key == GLFW_KEY_KP_ADD)
+		{
+			world.properties.max_level = min(32, world.properties.max_level + 1);
+		}
+		if (key == GLFW_KEY_KP_SUBTRACT)
+		{
+			world.properties.max_level = max(1, world.properties.max_level - 1);
 		}
 	}
 }
@@ -764,6 +774,7 @@ void DebugScene::render_gui()
 	ImGui::Checkbox("Quads", &quads);
 	ImGui::Checkbox("Flat quads", &flat_quads);
 	ImGui::Checkbox("Smooth shading", &smooth_shading);
+	ImGui::Checkbox("Stitching", &world.properties.enable_stitching);
 	ImGui::Checkbox("Update focus point", &update_focus);
 
 	ImGui::End();

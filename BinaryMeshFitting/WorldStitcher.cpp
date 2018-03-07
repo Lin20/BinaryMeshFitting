@@ -91,6 +91,8 @@ void WorldStitcher::stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out
 
 			face_nodes[0] = (w->force_chunk_octree ? w->chunk->octree.children[c1] : n->children[c1]);
 			face_nodes[1] = (w->force_chunk_octree ? w->chunk->octree.children[c1] : n->children[c2]);
+			if (!face_nodes[0] || !face_nodes[1])
+				continue;
 			if (face_nodes[0]->is_world_node() && face_nodes[1]->is_world_node())
 			{
 				//if (!face_nodes[0]->is_leaf() && !face_nodes[1]->is_leaf())
@@ -111,6 +113,8 @@ void WorldStitcher::stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out
 				(w->force_chunk_octree ? w->chunk->octree.children : n->children)[Tables::TCellProcEdgeMask[i][3]]
 			};
 
+			if (!edge_nodes[0] || !edge_nodes[1] || !edge_nodes[2] || !edge_nodes[3])
+				continue;
 			if (edge_nodes[0]->is_world_node() && edge_nodes[1]->is_world_node() && edge_nodes[2]->is_world_node() && edge_nodes[3]->is_world_node())
 			{
 				//if (!edge_nodes[0]->is_leaf() && !edge_nodes[1]->is_leaf() && !edge_nodes[2]->is_leaf() && !edge_nodes[3]->is_leaf())

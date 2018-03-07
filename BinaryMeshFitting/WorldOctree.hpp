@@ -25,6 +25,7 @@ struct WorldProperties
 	int num_threads;
 	int process_iters;
 	int chunk_resolution;
+	bool enable_stitching;
 
 	__declspec(noinline) WorldProperties();
 };
