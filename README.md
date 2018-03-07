@@ -17,7 +17,7 @@ Only 64-bit building is supported on Windows using Visual Studio 2017, but with 
 ![Massive Generation 2](https://i.imgur.com/O7CFm0o.png)
 
 ## Technical Details
-This project uses a unique approach to extracting a mesh. Rather than rely on a density field or hermite data, the it works off of binary data and processes it to form a smooth surface. This has numerous advantages, like reduced memory usage, compression, cache friendliness and more.
+This project uses a unique approach to extracting a mesh. Rather than rely on a density field or hermite data, it works off of binary data and processes it to form a smooth surface. This has numerous advantages, like reduced memory usage, compression, cache friendliness and more.
 
 The technique used to process mesh is known as dual/primal mesh optimization, or the "dual of the dual operator", which was first described by Yutaka Ohtakey and Alexander G. Belyaev in *Dual/Primal Mesh Optimization for Polygonized Implicit Surfaces*. While their method uses marching cubes to extract a base mesh and an implicit function for refinement, Gregory Nielson later published a paper showing the same idea applied to a binary mesh in a cellular structure. Even after a small number of iterations, the mesh converges to the true surface.
 
