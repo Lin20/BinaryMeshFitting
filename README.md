@@ -17,15 +17,17 @@ Only 64-bit building is supported on Windows using Visual Studio 2017, but with 
 ![Massive Generation 2](https://i.imgur.com/O7CFm0o.png)
 
 ## Technical Details
-This project uses a unique approach to extracting a mesh. Rather than rely on a density field or hermite data, the project works off of binary data and processes it to form a smooth surface. This has numerous advantages, like reduced memory usage, compression, cache friendliness and more.
+This project uses a unique approach to extracting a mesh. Rather than rely on a density field or hermite data, the it works off of binary data and processes it to form a smooth surface. This has numerous advantages, like reduced memory usage, compression, cache friendliness and more.
 
-The technique used to process mesh is known as dual/primal mesh optimization, or "dual of the dual operator" and was first described by Yutaka Ohtakey and Alexander G. Belyaev in *Dual/Primal Mesh Optimization for Polygonized Implicit Surfaces*. While their method uses marching cubes to extract a base mesh and an implicit function for refinement, Gregory Nielson later published a paper showing the same idea applied to binary mesh. Even in a small number of iterations, the mesh converges to the true surface.
+The technique used to process mesh is known as dual/primal mesh optimization, or the "dual of the dual operator", which was first described by Yutaka Ohtakey and Alexander G. Belyaev in *Dual/Primal Mesh Optimization for Polygonized Implicit Surfaces*. While their method uses marching cubes to extract a base mesh and an implicit function for refinement, Gregory Nielson later published a paper showing the same idea applied to a binary mesh in a cellular structure. Even after a small number of iterations, the mesh converges to the true surface.
 
-While sharp features are lost with plain smoothing, passing in gradients allows the use of a QEF minimizer to restore sharp features and extract an optimal mesh. Additionally, while the authors describe only using this processing to position vertices, it can also be used to calculate smooth normals, blend colors and materials and more. The normals in the above screenshot were calculated by blending face normals, and they're far smoother than anything that can be calculated by calculating gradients.
+While sharp features are lost with plain smoothing, passing in gradients allows the use of a QEF minimizer to restore sharp features and extract an optimal mesh. Additionally, the authors describe only processing to position vertices, but it can also be used to calculate smooth normals, blend colors and materials and more. The normals in the above milk-like screenshot started off with flat face normals from a cubic mesh.
 
-Processing is an optional step. While dual marching cubes is the base algorithm, it's mixed with the octree traversal stage in (manifold) dual contouring, and as a result the base mesh can calculate and use hermite data to position vertices. This would result in a smooth mesh while foregoing processing. This would also allow chunk simplification if triangle count is a concern.
+Worth noting is that processing is an optional step. While dual marching cubes is the base algorithm, it's mixed with the octree traversal stage in (manifold) dual contouring, and as a result chunks can calculate and use hermite data to position vertices. This would result in a smooth mesh while foregoing processing, as well as introduce chunk/octree simplification if triangle count is a concern.
 
-Lastly, this project can work with either triangles or quads. Quads are suggested because they result in far fewer primitives to be processed, but they're toggleable.
+Lastly, this project can work with either triangles or quads. Quads are suggested because they result in far fewer primitives to be processed.
+
+Here is an optimal mesh using the full technique that would normally appear jagged and deformed:
 
 ![Ideal Mesh](https://i.imgur.com/Vc2Y2wN.png)
 
