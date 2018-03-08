@@ -140,13 +140,13 @@ const void NoiseSamplers::terrain2d_block(const Sampler & sampler, const float r
 const void NoiseSamplers::terrain2d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
 {
 	const float g_scale = 1.0f;
-	const float ym = 0.5f;
+	const float nm = 128.0f;
 	NOISE_BLOCK(size.x, 1, size.z, p.x * g_scale, 0, p.z * g_scale, scale * g_scale, &dest_noise, vectorset_out);
 
-	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::ValueFractal);
-	sampler.noise_sampler->SetPerturbType(FastNoiseSIMD::PerturbType::GradientFractal);
-	sampler.noise_sampler->SetPerturbFractalOctaves(20);
-	sampler.noise_sampler->SetPerturbAmp(0.707f);
+	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::PerlinFractal);
+	sampler.noise_sampler->SetPerturbType(FastNoiseSIMD::PerturbType::None);
+	sampler.noise_sampler->SetPerturbFractalOctaves(4);
+	sampler.noise_sampler->SetPerturbAmp(1.0f);
 	sampler.noise_sampler->SetPerturbFrequency(0.5f);
 	sampler.noise_sampler->SetFractalType(FastNoiseSIMD::FractalType::RigidMulti);
 	sampler.noise_sampler->FillNoiseSet(dest_noise, vectorset_out);
@@ -159,11 +159,11 @@ const void NoiseSamplers::terrain2d_pert_block(const Sampler & sampler, const fl
 	{
 		for (int iy = 0; iy < size.y; iy++)
 		{
-			dy = ((float)iy * scale + p.y) * g_scale * ym;
+			dy = ((float)iy * scale + p.y) * g_scale;
 			for (int iz = 0; iz < size.z; iz++)
 			{
-				float n = dest_noise[ix * size.z + iz] * resolution * 0.125f;
-				(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				float n = dest_noise[ix * size.z + iz];
+				(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n * nm;
 			}
 		}
 	}
@@ -210,10 +210,10 @@ const void NoiseSamplers::terrain3d_pert_block(const Sampler & sampler, const fl
 
 	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::ValueFractal);
 	sampler.noise_sampler->SetPerturbType(FastNoiseSIMD::PerturbType::GradientFractal);
-	sampler.noise_sampler->SetFractalOctaves(8);
-	sampler.noise_sampler->SetPerturbAmp(0.707f);
-	sampler.noise_sampler->SetPerturbFrequency(0.25f);
-	sampler.noise_sampler->SetFractalType(FastNoiseSIMD::FractalType::RigidMulti);
+	sampler.noise_sampler->SetFractalOctaves(6);
+	sampler.noise_sampler->SetPerturbAmp(1.0f);
+	sampler.noise_sampler->SetPerturbFrequency(0.5f);
+	sampler.noise_sampler->SetFractalType(FastNoiseSIMD::FractalType::FBM);
 	sampler.noise_sampler->FillNoiseSet(dest_noise, vectorset_out);
 
 	if (!(*out))

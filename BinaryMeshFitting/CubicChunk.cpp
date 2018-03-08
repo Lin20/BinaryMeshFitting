@@ -9,6 +9,8 @@ using namespace glm;
 
 #define MORTON_CODING 0
 
+#define USE_DENSITIES true
+
 #define DC_LINE(ox,oy,oz,m) \
 	s0 = encode_vertex(xyz.x + (ox), xyz.y + (oy), xyz.z + (oz), dimp1, z_per_y, y_per_x, s0_mask); \
 	if (samples[s0] & s0_mask) \
@@ -29,12 +31,14 @@ else if (z_block > 0) \
 CubicChunk::CubicChunk() : Chunk()
 {
 	cell_block = 0;
+	float_block = 0;
 }
 
 CubicChunk::CubicChunk(glm::vec3 pos, float size, int level, Sampler& sampler,
 	bool produce_quads) : Chunk(pos, size, level, sampler, produce_quads)
 {
 	cell_block = 0;
+	float_block = 0;
 }
 
 CubicChunk::~CubicChunk()
@@ -70,7 +74,7 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 	//memset(samples, 0, sizeof(uint32_t) * real_count);
 	float delta = size / (float)dim;
 	const float res = sampler.world_size;
-	FloatBlock* float_block = float_allocator->new_element();
+	float_block = float_allocator->new_element();
 	float_block->init(dimp1 * dimp1 * dimp1, dimp1 * dimp1 * dimp1);
 
 	sampler.block(res, pos, ivec3(dimp1, dimp1, dimp1), delta * scale, &float_block->data, &float_block->vectorset, float_block->dest_noise);
@@ -131,10 +135,14 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 	else
 		contains_mesh = mesh;
 
-	float_allocator->free_element(float_block);
+	if (!USE_DENSITIES || !contains_mesh)
+	{
+		float_allocator->free_element(float_block);
+		float_block = 0;
+	}
 }
 
-void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator)
+void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator, ResourceAllocator<FloatBlock>* float_allocator)
 {
 	if (!vi)
 	{
@@ -412,7 +420,7 @@ void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>*
 					line_masks[0] |= local_masks[0];
 				if (local_masks[1] != 0)
 					line_masks[1] |= local_masks[1];
-				 if (local_masks[2] != 0)
+				if (local_masks[2] != 0)
 					line_masks[2] |= local_masks[2];
 				if (local_masks[3] != 0)
 					line_masks[3] |= local_masks[3];
@@ -474,6 +482,18 @@ void CubicChunk::generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>*
 	//cells.shrink();
 
 	free(masks);
+	if (USE_DENSITIES)
+	{
+		float_allocator->free_element(float_block);
+		float_block = 0;
+	}
+}
+
+__forceinline void _get_intersection(vec3& v0, vec3& v1, float s0, float s1, float isolevel, vec3& out)
+{
+	float mu = (isolevel - s0) / (s1 - s0);
+	vec3 delta_v = (v1 - v0) * mu;
+	out = delta_v + v0;
 }
 
 __forceinline void CubicChunk::calculate_cell(glm::uvec3 xyz, uint32_t next_index, Cell* result, bool force, uint8_t mask)
@@ -490,6 +510,19 @@ __forceinline void CubicChunk::calculate_cell(glm::uvec3 xyz, uint32_t next_inde
 	result->v_map[3] = -1;
 
 	uint16_t edge_mask = 0;
+	glm::vec3 edge_crossings[12];
+	float corners[8];
+	float dv = size / (float)dim;
+
+	if (USE_DENSITIES)
+	{
+		int dimp1 = dim + 1;
+		for (int i = 0; i < 8; i++)
+		{
+			corners[i] = float_block->data[(xyz.x + Tables::TDX[i]) * dimp1 * dimp1 + (xyz.y + Tables::TDY[i]) * dimp1 + xyz.z + Tables::TDZ[i]];
+		}
+	}
+
 	for (int i = 0; i < 12; i++)
 	{
 		int v0 = Tables::TEdgePairs[i][0];
@@ -501,32 +534,53 @@ __forceinline void CubicChunk::calculate_cell(glm::uvec3 xyz, uint32_t next_inde
 			continue;
 
 		edge_mask |= 1 << i;
+
+		if (USE_DENSITIES)
+		{
+			vec3 e0(dv * (Tables::TDX[v0] + xyz.x), dv * (Tables::TDY[v0] + xyz.y), dv * (Tables::TDZ[v0] + xyz.z));
+			vec3 e1(dv * (Tables::TDX[v1] + xyz.x), dv * (Tables::TDY[v1] + xyz.y), dv * (Tables::TDZ[v1] + xyz.z));
+			_get_intersection(e0, e1, corners[v0], corners[v1], 0, edge_crossings[i]);
+		}
 	}
+
 	result->edge_mask = edge_mask;
 
 	int v_index = 0;
 	uint32_t edge_map = 0;
 	bool boundary = force || xyz.x <= 0 || xyz.y <= 0 || xyz.z <= 0 || xyz.x >= dim - 1 || xyz.y >= dim - 1 || xyz.z >= dim - 1;
-	for (int i = 0; i < 22; i++)
+	int v_count = 0;
+	glm::vec3 v_pos[4] = { vec3(0,0,0), vec3(0,0,0), vec3(0,0,0), vec3(0,0,0) };
+
+	for (int i = 0; i < 16; i++)
 	{
 		int e = Tables::EdgeTable[mask][i];
-		if (e == -1)
+		if (e == -1 || e == -2)
 		{
+			if (v_count > 0)
+			{
+				v_pos[v_index] /= (float)v_count;
+				v_pos[v_index] += pos;
+				v_count = 0;
+			}
 			v_index++;
-			if (boundary)
+			if (e == -2)
 				break;
 			continue;
-		}
-		if (e == -2)
-		{
-			v_index++;
-			//assert(v_index == n_verts);
-			break;
 		}
 		assert(((edge_map >> (e * 2)) & 3) == 0);
 		if (((edge_map >> (e * 2)) & 3) != 0)
 			printf("Hmm\n");
 		edge_map |= (v_index) << (e * 2);
+		assert((edge_mask & (1 << e)) != 0);
+		if (USE_DENSITIES)
+		{
+			if (!v_count)
+				v_pos[v_index] = edge_crossings[e];
+			else
+				v_pos[v_index] += edge_crossings[e];
+			v_count++;
+
+		}
 	}
 
 	//assert(v_index == n_verts);
@@ -534,7 +588,7 @@ __forceinline void CubicChunk::calculate_cell(glm::uvec3 xyz, uint32_t next_inde
 	for (int i = 0; i < v_index; i++)
 	{
 		DualVertex v;
-		calculate_dual_vertex(xyz, (uint32_t)vi->vertices.count, &v, false, mask, glm::vec3(0, 0, 0));
+		calculate_dual_vertex(xyz, (uint32_t)vi->vertices.count, &v, USE_DENSITIES, mask, v_pos[i]);
 		result->v_map[i] = (uint32_t)vi->vertices.count;
 		vi->vertices.push_back(v);
 	}

@@ -34,11 +34,11 @@ __declspec(noinline) WorldProperties::WorldProperties()
 WorldOctree::WorldOctree()
 {
 	using namespace std;
-	//sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::cuboid);
+	//sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::sphere);
 	//sampler.block = ImplicitFunctions::cuboid_block;
 	NoiseSamplers::create_sampler_terrain_pert_3d(&sampler);
 	sampler.world_size = 256;
-	focus_point = glm::vec3(0, 0, 0);
+	focus_point = glm::vec3(-5.88f, 357.70f, -465.41f);
 	generator_shutdown = false;
 
 	this->properties = WorldProperties();

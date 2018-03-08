@@ -44,7 +44,7 @@ namespace ImplicitFunctions
 
 	const float sphere(const float resolution, const glm::vec3& p)
 	{
-		const float r = resolution * 0.35f;
+		const float r = resolution * 0.25f;
 		return -(glm::length(p) - r);
 	}
 
@@ -60,7 +60,7 @@ namespace ImplicitFunctions
 
 	const float plane_y(const float resolution, const glm::vec3 & p)
 	{
-		return -p.y;
+		return -p.y + p.x + p.z;
 	}
 
 	glm::vec3 get_intersection(glm::vec3 v0, glm::vec3 v1, float s0, float s1)

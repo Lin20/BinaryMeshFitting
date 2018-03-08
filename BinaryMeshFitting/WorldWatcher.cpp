@@ -19,6 +19,7 @@ WorldWatcher::~WorldWatcher()
 void WorldWatcher::init(WorldOctree* _world, glm::vec3 focus_pos)
 {
 	this->world = _world;
+	this->focus_pos = focus_pos;
 	renderables_head = &_world->octree;
 	renderables_tail = &_world->octree;
 	renderables_count = 1;
@@ -56,6 +57,7 @@ void WorldWatcher::update()
 			}
 			if (generate_batch.count > 0)
 			{
+				std::cout << "Generating " << generate_batch.count << " chunks." << std::endl;
 				generator.process_queue(generate_batch);
 				if (enable_stitching)
 				{

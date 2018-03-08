@@ -51,7 +51,7 @@ DebugScene::DebugScene(RenderInput* render_input)
 	this->flat_quads = FLAT_QUADS;
 	this->cull = true;
 	this->gui_visible = true;
-	this->update_focus = true;
+	this->update_focus = false;
 	this->line_width = 1.0f;
 	this->specular_power = SPECULAR_POWER;
 
@@ -606,6 +606,10 @@ void DebugScene::key_callback(int key, int scancode, int action, int mods)
 		{
 			camera.v_position = world.focus_point;
 		}
+		if (key == GLFW_KEY_SPACE)
+		{
+			update_focus = !update_focus;
+		}
 
 		if (key == GLFW_KEY_PAGE_UP)
 		{
@@ -742,7 +746,7 @@ void DebugScene::render_gui()
 
 	ImGui::Text("Group mult.:");
 	ImGui::NextColumn();
-	ImGui::SliderFloat("##lbl_octree_group", &world.properties.group_multiplier, 1.0f, 4.0f, 0, 0.5f);
+	ImGui::SliderFloat("##lbl_octree_group", &world.properties.group_multiplier, 1.0f, 4.0f);
 	ImGui::NextColumn();
 
 	ImGui::Text("Threads:");

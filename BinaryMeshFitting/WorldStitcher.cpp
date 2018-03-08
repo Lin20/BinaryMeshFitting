@@ -272,18 +272,28 @@ void WorldStitcher::stitch_indexes(OctreeNode* nodes[4], int direction, SmartCon
 		int m1 = (n->cell.mask >> c1) & 1;
 		int m2 = (n->cell.mask >> c2) & 1;
 
-		if (d_nodes[i]->size < min_size)
+		if (n->size < min_size)
 		{
-			min_size = d_nodes[i]->size;
+			min_size = n->size;
 			min_index = i;
 			flip = m1 == 1;
 			sign_changed = (n->cell.edge_mask >> edge) & 1; //((m1 == 0 && m2 != 0) || (m1 != 0 && m2 == 0));
+		}
+		else if (n->size == min_size && n != d_nodes[i-1])
+		{
+			/*assert(((n->cell.edge_mask >> edge) & 1) == sign_changed);
+			if (((n->cell.edge_mask >> edge) & 1) != sign_changed)
+			{
+				return;
+			}*/
 		}
 	}
 
 	if (!sign_changed)
 		return;
 
+	int indx = 0;
+	bool connected[4] = { false, false, false, false };
 
 	for (int i = 0; i < 4; i++)
 	{
@@ -305,9 +315,11 @@ void WorldStitcher::stitch_indexes(OctreeNode* nodes[4], int direction, SmartCon
 				inds[i] = n->root->vi->vertices[ind + n->root->mesh_offset];
 			else
 				inds[i] = n->root->vi->vertices[ind & 0x3FFFFFFF];
+			connected[i] = true;
 		}
 		else
 		{
+			connected[i] = false;
 			int new_index = -1;
 			for (int k = 0; k < 4; k++)
 			{
@@ -337,6 +349,7 @@ void WorldStitcher::stitch_indexes(OctreeNode* nodes[4], int direction, SmartCon
 				n->cell.edge_map |= new_index << (2 * edge);
 			n->cell.edge_mask |= 1 << edge;
 		}
+
 	}
 
 	if (QUADS)

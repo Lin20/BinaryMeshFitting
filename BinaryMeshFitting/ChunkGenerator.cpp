@@ -132,7 +132,7 @@ void ChunkGenerator::extract_dual_vertices(SmartContainer<WorldOctreeNode*>& bat
 		for (int i = 0; i < count; i++)
 		{
 			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
-				batch[i]->chunk->generate_dual_vertices(&vi_allocator, &cell_allocator, &inds_allocator);
+				batch[i]->chunk->generate_dual_vertices(&vi_allocator, &cell_allocator, &inds_allocator, &float_allocator);
 		}
 	}
 
