@@ -35,7 +35,7 @@ namespace Processing
 
 		bool operator==(const Edge& other) const
 		{
-			return (v[0] == other.v[0] && v[1] == other.v[1]) || (v[0] == other.v[1] && v[1] == other.v[2]);
+			return (v[0] == other.v[0] && v[1] == other.v[1]) || (v[0] == other.v[1] && v[1] == other.v[0]);
 		}
 	};
 
