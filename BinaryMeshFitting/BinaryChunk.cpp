@@ -2,6 +2,7 @@
 #include "BinaryChunk.hpp"
 #include "Tables.hpp"
 #include <iostream>
+#include <iomanip>
 #include <queue>
 #include <deque>
 
