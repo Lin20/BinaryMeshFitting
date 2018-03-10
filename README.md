@@ -6,12 +6,52 @@ This is the successor to [PushingVoxelsForward](https://github.com/Lin20/Pushing
 
 ## Building and Running
 
-Only 64-bit building is supported on Windows using Visual Studio 2017, but with a little extra work it can be used to run on Linux and even 32-bit architectures. It uses the following external libraries:
+You can use CMake or the provided 64-bit Visual Studio 2017 solution.
 
-* [glew](http://glew.sourceforge.net/)
-* [glfw](http://www.glfw.org/)
+### Dependencies
+
+* [GLEW](http://glew.sourceforge.net/)
+* [GLFW](http://www.glfw.org/)
 * [Vc](https://github.com/VcDevel/Vc) (currently not actually used)
 * [FastNoiseSIMD](https://github.com/Auburns/FastNoiseSIMD)
+
+### CMake
+
+So far only 64-bit building is tested on Windows using Visual Studio 2017.
+
+The custom Find\* CMake modules are rather minimal:
+
+* [FindGLM.cmake](cmake/Modules/FindGLM.cmake)
+* [FindGLFW.cmake](cmake/Modules/FindGLFW.cmake)
+* [FindFastNoiseSIMD.cmake](cmake/Modules/FindFastNoiseSIMD.cmake)
+
+A slightly modified version of [cmake-precompiled-header](https://github.com/larsch/cmake-precompiled-header) is used.
+
+#### [GLFW](http://www.glfw.org/) & [FastNoiseSIMD](https://github.com/Auburns/FastNoiseSIMD)
+
+To support multi-configuration generators (e.g. Visual Studio 2017),
+FindGLFW and FindFastNoiseSIMD expect separate "lib/Debug" and "lib/Release" directories
+or a "d"-postfix for the debug library.
+
+#### [Vc](https://github.com/VcDevel/Vc)
+
+You may also want to change your
+[VcConfig](https://github.com/VcDevel/Vc/blob/eef0f1f0588a06fa28cfd0e8810472db5e610ebe/cmake/VcConfig.cmake.in)
+file from
+
+```C++
+find_library(Vc_LIBRARIES Vc PATHS "${Vc_LIB_DIR}" NO_DEFAULT_PATH)
+```
+
+to something like
+
+```C++
+find_library(Vc_LIBRARY_DEBUG Vcd PATHS "${Vc_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(Vc_LIBRARY_RELEASE Vc PATHS "${Vc_LIB_DIR}" NO_DEFAULT_PATH)
+set(Vc_LIBRARIES debug ${Vc_LIBRARY_DEBUG} optimized ${Vc_LIBRARY_RELEASE})
+```
+
+to enable multi-configuration support.
 
 ## Media
 
