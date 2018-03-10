@@ -39,13 +39,13 @@ You may also want to change your
 [VcConfig](https://github.com/VcDevel/Vc/blob/eef0f1f0588a06fa28cfd0e8810472db5e610ebe/cmake/VcConfig.cmake.in)
 file from
 
-```C++
+```CMake
 find_library(Vc_LIBRARIES Vc PATHS "${Vc_LIB_DIR}" NO_DEFAULT_PATH)
 ```
 
 to something like
 
-```C++
+```CMake
 find_library(Vc_LIBRARY_DEBUG Vcd PATHS "${Vc_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(Vc_LIBRARY_RELEASE Vc PATHS "${Vc_LIB_DIR}" NO_DEFAULT_PATH)
 set(Vc_LIBRARIES debug ${Vc_LIBRARY_DEBUG} optimized ${Vc_LIBRARY_RELEASE})
