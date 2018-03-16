@@ -92,7 +92,7 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator);
 
 				batch[i]->chunk->generate_octree();
-				if (!batch[i]->chunk->octree.is_leaf())
+				if (!(batch[i]->flags & NODE_FLAGS_GROUP))
 				{
 					memcpy(batch[i]->children, batch[i]->chunk->octree.children, sizeof(OctreeNode*) * 8);
 					batch[i]->leaf_flag = false;

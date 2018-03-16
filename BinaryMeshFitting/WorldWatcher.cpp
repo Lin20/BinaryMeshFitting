@@ -315,15 +315,18 @@ void WorldWatcher::post_process_batch(SmartContainer<class WorldOctreeNode*>& ba
 				for (int i = 0; i < 8; i++)
 				{
 					WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
-					unlink_renderable(c);
-					generator.binary_allocator.free_element(c->chunk->binary_block);
-					generator.vi_allocator.free_element(c->chunk->vi);
-					generator.cell_allocator.free_element(c->chunk->cell_block);
-					generator.inds_allocator.free_element(c->chunk->indexes_block);
-					generator.isovertex_allocator.free_element(c->chunk->density_block);
-					world->gl_allocator.free_element(c->gl_chunk);
-					world->chunk_pool.deleteElement(c->chunk);
-					world->node_pool.deleteElement(c);
+					if (c->world_node_flag)
+					{
+						unlink_renderable(c);
+						generator.binary_allocator.free_element(c->chunk->binary_block);
+						generator.vi_allocator.free_element(c->chunk->vi);
+						generator.cell_allocator.free_element(c->chunk->cell_block);
+						generator.inds_allocator.free_element(c->chunk->indexes_block);
+						generator.isovertex_allocator.free_element(c->chunk->density_block);
+						world->gl_allocator.free_element(c->gl_chunk);
+						world->chunk_pool.deleteElement(c->chunk);
+						world->node_pool.deleteElement(c);
+					}
 				}
 			}
 

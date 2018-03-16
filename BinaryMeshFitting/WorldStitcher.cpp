@@ -315,12 +315,18 @@ Start:
 	DUAL_VERTEX(10, 4, 5);
 	DUAL_VERTEX(11, 6, 7);
 
-	for (int i = 0; i < 16; i++)
+	for (int i = 0; i < 16; i += 3)
 	{
-		int e = MarchingCubes::tri_table[mask][i];
-		if (e == -1)
+		int e0 = MarchingCubes::tri_table[mask][i + 0];
+		if (e0 == -1)
 			break;
+		int e1 = MarchingCubes::tri_table[mask][i + 1];
+		int e2 = MarchingCubes::tri_table[mask][i + 2];
 
-		v_out.push_back(crossings[e]);
+		//TODO: don't push degenerate triangles
+
+		v_out.push_back(crossings[e0]);
+		v_out.push_back(crossings[e1]);
+		v_out.push_back(crossings[e2]);
 	}
 }

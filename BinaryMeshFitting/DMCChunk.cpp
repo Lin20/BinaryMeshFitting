@@ -44,6 +44,14 @@ DMCChunk::DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler)
 
 DMCChunk::~DMCChunk()
 {
+	if (contains_mesh)
+	{
+		octree_children.node_pool.~MemoryPool();
+	}
+	else if (!octree.leaf_flag)
+	{
+
+	}
 }
 
 void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler)
@@ -63,6 +71,7 @@ void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler)
 	this->indexes_block = 0;
 	this->density_block = 0;
 	this->binary_block = 0;
+	this->octree.leaf_flag = true;
 }
 
 void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator)
@@ -669,6 +678,8 @@ float get_sample(int x, int y, int z, int dim, int size, IsoVertexBlock* density
 
 void DMCChunk::generate_octree()
 {
+	if (!octree.leaf_flag)
+		return;
 	int next_id = 0;
 	octree = DMCNode(this, size, pos, ivec3(0, 0, 0), 0, dim, 0.0f);
 	octree.leaf_flag = false;
@@ -683,7 +694,8 @@ void DMCChunk::generate_octree()
 		for (int i = 0; i < 8; i++)
 		{
 			ivec3 cxyz = ivec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * (int)i_size;
-			octree.children[i] = node_pool.newElement(this, c_size, pos + vec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * c_size, cxyz, c_level, i_size, get_sample(cxyz.x, cxyz.y, cxyz.z, local_dim, i_size, density_block));
+			octree_children.children[i] = DMCNode(this, c_size, pos + vec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * c_size, cxyz, c_level, i_size, get_sample(cxyz.x, cxyz.y, cxyz.z, local_dim, i_size, density_block));
+			octree.children[i] = &octree_children.children[i];
 		}
 		return;
 	}
@@ -692,6 +704,7 @@ void DMCChunk::generate_octree()
 	queue<DMCNode*> next_split;
 	next_split.push(&octree);
 	int one_count = 0;
+
 
 	while (!next_split.empty())
 	{
@@ -713,7 +726,7 @@ void DMCChunk::generate_octree()
 					s = get_sample(cxyz.x, cxyz.y, cxyz.z, local_dim, i_size, density_block);
 					one_count++;
 				}
-				n->children[i] = node_pool.newElement(this, c_size, n->pos + vec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * c_size, cxyz, c_level, i_size, s);
+				n->children[i] = octree_children.node_pool.newElement(this, c_size, n->pos + vec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * c_size, cxyz, c_level, i_size, s);
 				if (i_size > 1)
 					next_split.push((DMCNode*)n->children[i]);
 			}

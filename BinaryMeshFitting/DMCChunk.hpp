@@ -40,8 +40,17 @@ public:
 	BinaryBlock* binary_block;
 	DMC_CellsBlock* cell_block;
 	IndexesBlock* indexes_block;
+
 	DMCNode octree;
-	MemoryPool<DMCNode> node_pool;
+	union children_pool
+	{
+		MemoryPool<DMCNode> node_pool;
+		DMCNode children[8];
+
+		children_pool() : node_pool() {}
+		~children_pool() {}
+	};
+	children_pool octree_children;
 
 	DMCChunk();
 	DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler);
@@ -55,7 +64,7 @@ public:
 	void polygonize();
 	void polygonize_cell(DMC_Cell& _c, int x, int y, int z, int dim, SmartContainer<uint32_t>& inds);
 	void copy_verts_and_inds(SmartContainer<DualVertex>& v_out, SmartContainer<uint32_t>& i_out);
-	
+
 	// Sub procedures
 	void calculate_cell(int x, int y, int z, uint32_t next_v_index, uint8_t mask, DMC_Cell& dest, int dim);
 	void calculate_isovertex(int x0, int y0, int z0, int x1, int y1, int z1, int index, int dim, DMC_Isovertex& out);
