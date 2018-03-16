@@ -6,6 +6,7 @@
 #include "Tables.hpp"
 #include "DefaultOptions.h"
 #include "MeshProcessor.hpp"
+#include "CubicChunk.hpp"
 
 #include <iostream>
 #include <iomanip>
@@ -20,25 +21,24 @@
 __declspec(noinline) WorldProperties::WorldProperties()
 {
 	split_multiplier = 1.0f;
-	group_multiplier = split_multiplier * 2.0f;
+	group_multiplier = split_multiplier * 1.1f;
 	size_modifier = 0.0f;
 	max_level = 7;
 	min_level = 1;
 	num_threads = DEFAULT_THREADS;
 	process_iters = DEFAULT_ITERATIONS;
 	chunk_resolution = DEFAULT_RESOLUTION;
-	enable_stitching = false;
+	enable_stitching = true;
 }
-
 
 WorldOctree::WorldOctree()
 {
 	using namespace std;
 	//sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::sphere);
 	//sampler.block = ImplicitFunctions::cuboid_block;
-	NoiseSamplers::create_sampler_terrain_pert_3d(&sampler);
+	NoiseSamplers::create_sampler_terrain_pert_2d(&sampler);
 	sampler.world_size = 256;
-	focus_point = glm::vec3(-5.88f, 357.70f, -465.41f);
+	focus_point = glm::vec3(0, 0, 0);
 	generator_shutdown = false;
 
 	this->properties = WorldProperties();
@@ -55,7 +55,7 @@ WorldOctree::WorldOctree()
 	cout << "-Min Level:\t" << properties.min_level << endl << endl;
 }
 
-void destroy_world_nodes(MemoryPool<WorldOctreeNode, 65536>* pool, MemoryPool<CubicChunk, 65536>* chunk_pool, WorldOctreeNode* n)
+void destroy_world_nodes(MemoryPool<WorldOctreeNode>* pool, MemoryPool<DMCChunk>* chunk_pool, WorldOctreeNode* n)
 {
 	if (!n)
 		return;
@@ -98,9 +98,9 @@ void WorldOctree::destroy_leaves()
 	i_out.count = 0;
 	destroy_world_nodes(&node_pool, &chunk_pool, &octree);
 	chunk_pool.~MemoryPool();
-	new (&chunk_pool) MemoryPool<CubicChunk, 65536>();
+	new (&chunk_pool) MemoryPool<DMCChunk>();
 	node_pool.~MemoryPool();
-	new (&node_pool) MemoryPool<WorldOctreeNode, 65536>();
+	new (&node_pool) MemoryPool<WorldOctreeNode>();
 }
 
 void WorldOctree::init(uint32_t size)
@@ -178,7 +178,7 @@ bool WorldOctree::split_node(WorldOctreeNode* n)
 	for (int i = 0; i < 8; i++)
 	{
 		assert(n->children[i] == 0);
-		glm::vec3 c_pos(n->pos.x + (float)Tables::TDX[i] * c_size, n->pos.y + (float)Tables::TDY[i] * c_size, n->pos.z + (float)Tables::TDZ[i] * c_size);
+		glm::vec3 c_pos(n->pos.x + (float)Tables::MCDX[i] * c_size, n->pos.y + (float)Tables::MCDY[i] * c_size, n->pos.z + (float)Tables::MCDZ[i] * c_size);
 		WorldOctreeNode* c = node_pool.newElement(0, n, n->size * 0.5f, c_pos, n->level + 1);
 		n->children[i] = c;
 
@@ -245,7 +245,7 @@ bool WorldOctree::node_needs_group(const glm::vec3& center, WorldOctreeNode* n)
 void WorldOctree::create_chunk(WorldOctreeNode* n)
 {
 	n->chunk = chunk_pool.newElement();
-	n->chunk->init(n->pos, n->size, n->level, sampler, QUADS);
+	n->chunk->init(n->pos, n->size, n->level, sampler);
 	n->chunk->dim = properties.chunk_resolution;
 	n->chunk->id = next_chunk_id++;
 }
@@ -407,7 +407,7 @@ void WorldOctree::generate_outline(SmartContainer<WorldOctreeNode*>& batch)
 	cout << "done (" << (int)(elapsed / (double)CLOCKS_PER_SEC * 1000.0) << "ms)" << endl;
 }
 
-CubicChunk* WorldOctree::get_chunk_id_at(glm::vec3 p)
+DMCChunk* WorldOctree::get_chunk_id_at(glm::vec3 p)
 {
 	for (auto& n : leaves)
 	{
@@ -911,7 +911,15 @@ void WorldOctree::process_from_render_thread()
 			}
 			n->generation_stage = GENERATION_STAGES_UPLOADING;
 			n->upload();
+
+			if (!FAST_GROUPING)
+			{
+				watcher.generator.vi_allocator.free_element(n->chunk->vi);
+				n->chunk->vi = 0;
+			}
 			n->generation_stage = GENERATION_STAGES_DONE;
+			if (n->gl_chunk)
+				n->gl_chunk->reset_data();
 			if (n->gl_chunk && n->gl_chunk->p_count > 0 && n->gl_chunk->v_count > 0)
 			{
 				upload_count++;

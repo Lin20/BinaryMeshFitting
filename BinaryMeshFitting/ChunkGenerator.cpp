@@ -4,6 +4,7 @@
 #include "WorldOctreeNode.hpp"
 #include "MeshProcessor.hpp"
 #include "DefaultOptions.h"
+#include "DMCChunk.hpp"
 #include <iostream>
 
 ChunkGenerator::ChunkGenerator() : ThreadDebug("ChunkGenerator")
@@ -34,16 +35,17 @@ void ChunkGenerator::process_queue(SmartContainer<WorldOctreeNode*>& batch)
 		}
 	}
 
-	extract_samples(batch, &binary_allocator, &float_allocator);
+	extract_chunk(batch);
+	/*extract_samples(batch);
 	extract_dual_vertices(batch);
 	extract_octrees(batch);
 	extract_base_meshes(batch);
-	extract_format_meshes(batch);
+	extract_format_meshes(batch);*/
 
-	for (int i = 0; i < count; i++)
+	/*for (int i = 0; i < count; i++)
 	{
 		batch[i]->generation_stage = GENERATION_STAGES_NEEDS_UPLOAD;
-	}
+	}*/
 
 	/*if (stitcher.stage == STITCHING_STAGES_READY)
 	{
@@ -74,7 +76,50 @@ void ChunkGenerator::generate_chunk(WorldOctreeNode* n)
 	world->create_chunk(n);
 }
 
-void ChunkGenerator::extract_samples(SmartContainer<class WorldOctreeNode*>& batch, ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<FloatBlock>* float_allocator)
+void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch)
+{
+	int count = (int)batch.count;
+	int i;
+#pragma omp parallel for
+	for (i = 0; i < count; i++)
+	{
+		if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
+		{
+			if (update_still_needed(batch[i]))
+			{
+				batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator);
+
+				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator);
+
+				batch[i]->chunk->generate_octree();
+				if (!batch[i]->chunk->octree.is_leaf())
+				{
+					memcpy(batch[i]->children, batch[i]->chunk->octree.children, sizeof(OctreeNode*) * 8);
+					batch[i]->leaf_flag = false;
+				}
+
+				batch[i]->chunk->polygonize();
+
+				binary_allocator.free_element(batch[i]->chunk->binary_block);
+				batch[i]->chunk->binary_block = 0;
+				isovertex_allocator.free_element(batch[i]->chunk->density_block);
+				batch[i]->chunk->density_block = 0;
+				cell_allocator.free_element(batch[i]->chunk->cell_block);
+				batch[i]->chunk->cell_block = 0;
+				inds_allocator.free_element(batch[i]->chunk->indexes_block);
+				batch[i]->chunk->indexes_block = 0;
+			}
+		}
+
+		batch[i]->format(&world->gl_allocator);
+
+		batch[i]->generation_stage = GENERATION_STAGES_NEEDS_UPLOAD;
+	}
+
+
+}
+
+void ChunkGenerator::extract_samples(SmartContainer<class WorldOctreeNode*>& batch)
 {
 	using namespace std;
 	//cout << "-Generating samples...";
@@ -87,8 +132,10 @@ void ChunkGenerator::extract_samples(SmartContainer<class WorldOctreeNode*>& bat
 	{
 		if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
 		{
-			if(update_still_needed(batch[i]))
-			batch[i]->chunk->generate_samples(binary_allocator, float_allocator);
+			if (update_still_needed(batch[i]))
+			{
+				batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator);
+			}
 		}
 	}
 
@@ -111,8 +158,8 @@ void ChunkGenerator::extract_filter(SmartContainer<WorldOctreeNode*>& batch)
 #pragma omp parallel for
 	for (i = 0; i < count; i++)
 	{
-		if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
-			batch[i]->chunk->filter();
+		//if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
+		//	batch[i]->chunk->filter();
 	}
 
 	double ms = clock() - start_clock;
@@ -132,7 +179,7 @@ void ChunkGenerator::extract_dual_vertices(SmartContainer<WorldOctreeNode*>& bat
 		for (int i = 0; i < count; i++)
 		{
 			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
-				batch[i]->chunk->generate_dual_vertices(&vi_allocator, &cell_allocator, &inds_allocator, &float_allocator);
+				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator);
 		}
 	}
 
@@ -160,8 +207,8 @@ void ChunkGenerator::extract_octrees(SmartContainer<WorldOctreeNode*>& batch)
 					memcpy(batch[i]->children, batch[i]->chunk->octree.children, sizeof(OctreeNode*) * 8);
 					batch[i]->leaf_flag = false;
 				}
-				else
-					cout << "WARNING: Octree is leaf." << endl;
+				//else
+				//	cout << "WARNING: Octree is leaf." << endl;
 			}
 		}
 	}
@@ -188,11 +235,11 @@ void ChunkGenerator::extract_base_meshes(SmartContainer<WorldOctreeNode*>& batch
 		{
 			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
 			{
-				batch[i]->chunk->generate_base_mesh(&vi_allocator);	
+				batch[i]->chunk->polygonize();
 				if (!iters || !batch[i]->chunk->contains_mesh || !batch[i]->chunk->vi->vertices.count || !batch[i]->chunk->vi->mesh_indexes.count)
 					continue;
 
-				auto& v_out = batch[i]->chunk->vi->vertices;
+				/*auto& v_out = batch[i]->chunk->vi->vertices;
 				auto& i_out = batch[i]->chunk->vi->mesh_indexes;
 				Processing::MeshProcessor<4> mp(true, SMOOTH_NORMALS);
 				mp.init(batch[i]->chunk->vi->vertices, batch[i]->chunk->vi->mesh_indexes, sampler);
@@ -222,8 +269,8 @@ void ChunkGenerator::extract_base_meshes(SmartContainer<WorldOctreeNode*>& batch
 					v_out.count = 0;
 					i_out.count = 0;
 					mp.flush(v_out, i_out);
-				}
-				
+				}*/
+
 			}
 		}
 	}

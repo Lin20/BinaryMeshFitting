@@ -56,9 +56,9 @@ void GLChunk::destroy()
 	initialized = 0;
 }
 
-bool GLChunk::set_data()
+bool GLChunk::set_data(bool unwind)
 {
-	return set_data(p_data, n_data, c_data, 0, true);
+	return set_data(p_data, n_data, c_data, 0, unwind);
 }
 
 bool GLChunk::set_data(SmartContainer<uint32_t>* index_data, bool unwind_verts)
@@ -108,6 +108,76 @@ bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<uint3
 
 	v_count = pos_data.count;
 	p_count = index_data.count;
+
+	return true;
+}
+
+bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::vec3>& color_data, SmartContainer<uint32_t>* index_data)
+{
+	if (!pos_data.count || (index_data && !index_data->count))
+	{
+		v_count = 0;
+		p_count = 0;
+		return false;
+	}
+
+	using namespace glm;
+
+	// Vertex buffers
+	if (pos_data.count < vbo_size && false)
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, v_vbo);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec3) * pos_data.count, pos_data.elements);
+
+		glBindBuffer(GL_ARRAY_BUFFER, c_vbo);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec3) * color_data.count, color_data.elements);
+	}
+	else
+	{
+		vbo_size = pos_data.count;
+		glBindBuffer(GL_ARRAY_BUFFER, v_vbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * pos_data.count, pos_data.elements, GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, c_vbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * color_data.count, color_data.elements, GL_STATIC_DRAW);
+	}
+
+	// Index buffer
+	if (index_data)
+	{
+		if (index_data->count < ibo_size && false)
+		{
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(uint32_t) * index_data->count, index_data->elements);
+		}
+		else
+		{
+			ibo_size = index_data->count;
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * index_data->count, index_data->elements, GL_STATIC_DRAW);
+		}
+	}
+
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, v_vbo);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, c_vbo);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+	if (index_data)
+	{
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	}
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glBindVertexArray(0);
+
+	v_count = pos_data.count;
+	if (index_data)
+		p_count = index_data->count;
+	else
+		p_count = v_count / 3;
 
 	return true;
 }
@@ -180,6 +250,27 @@ bool GLChunk::set_data(SmartContainer<glm::vec3>& pos_data, SmartContainer<glm::
 		p_count = index_data->count;
 	else
 		p_count = pos_data.count;
+
+	return true;
+}
+
+bool GLChunk::format_data_tris(SmartContainer<DualVertex>& vert_data)
+{
+	p_data.count = 0;
+	n_data.count = 0;
+	c_data.count = 0;
+
+	p_data.prepare_exact(vert_data.count);
+	n_data.prepare_exact(vert_data.count);
+	c_data.prepare_exact(vert_data.count);
+
+	size_t count = vert_data.count;
+	for (size_t i = 0; i < count; i++)
+	{
+		p_data.push_back(vert_data[i].p);
+		n_data.push_back(vert_data[i].n);
+		c_data.push_back(vert_data[i].color);
+	}
 
 	return true;
 }
@@ -284,4 +375,11 @@ bool GLChunk::format_data(SmartContainer<DualVertex>& vert_data, bool smooth_nor
 	}
 
 	return true;
+}
+
+void GLChunk::reset_data()
+{
+	p_data.reset();
+	n_data.reset();
+	c_data.reset();
 }

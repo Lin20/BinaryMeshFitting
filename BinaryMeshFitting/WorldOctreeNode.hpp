@@ -71,7 +71,7 @@ public:
 	WorldOctreeNode* renderable_next;
 	std::atomic<int> flags;
 	std::atomic<int> generation_stage;
-	CubicChunk* chunk;
+	class DMCChunk* chunk;
 	glm::vec3 middle;
 	bool world_leaf_flag;
 	bool force_chunk_octree;
@@ -105,6 +105,18 @@ public:
 	{
 		return other.level == level && other.xyz == xyz;
 	}
+};
+
+class DMCNode : public OctreeNode
+{
+public:
+	DMCChunk* root;
+	uint32_t i_size;
+	glm::ivec3 xyz;
+	float sample;
+
+	DMCNode();
+	DMCNode(DMCChunk* _chunk, float _size, glm::vec3 _pos, glm::ivec3 _xyz, uint8_t _level, uint32_t _int_size, float _sample);
 };
 
 namespace std

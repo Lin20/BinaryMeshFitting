@@ -58,6 +58,7 @@ class DebugScene
 	WorldOctree world;
 
 	BinaryChunk* binary_chunk;
+	class DMCChunk* dmc_chunk;
 
 	std::mutex gl_mutex;
 	clock_t last_extraction;
@@ -70,12 +71,14 @@ public:
 
 	void init_single_chunk();
 	void init_binary_chunk();
+	void init_dmc_chunk();
 	void init_world();
 	int update(struct RenderInput* input);
 	int render(struct RenderInput* input);
 
 	void render_single_chunk();
 	void render_binary_chunk();
+	void render_dmc_chunk();
 	void render_world();
 
 	void key_callback(int key, int scancode, int action, int mods);

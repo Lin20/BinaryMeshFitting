@@ -156,6 +156,7 @@
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="CubicChunk.cpp" />
     <ClCompile Include="DebugScene.cpp" />
+    <ClCompile Include="DMCChunk.cpp" />
     <ClCompile Include="DualChunk.cpp" />
     <ClCompile Include="DynamicGLChunk.cpp" />
     <ClCompile Include="Entry.cpp" />
@@ -196,8 +197,10 @@
     <ClInclude Include="CubicChunk.hpp" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="DefaultOptions.h" />
+    <ClInclude Include="DMCChunk.hpp" />
     <ClInclude Include="DualChunk.hpp" />
     <ClInclude Include="DynamicGLChunk.hpp" />
+    <ClInclude Include="MCTable.h" />
     <ClInclude Include="ResourceAllocator.hpp" />
     <ClInclude Include="GLChunk.hpp" />
     <ClInclude Include="GUI\imconfig.h" />

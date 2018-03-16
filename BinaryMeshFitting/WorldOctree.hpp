@@ -3,7 +3,7 @@
 #include "Sampler.hpp"
 #include "WorldOctreeNode.hpp"
 #include "MemoryPool.h"
-#include "CubicChunk.hpp"
+#include "DMCChunk.hpp"
 #include "SmartContainer.hpp"
 #include "GLChunk.hpp"
 #include "ColorMapper.hpp"
@@ -36,8 +36,8 @@ public:
 	Sampler sampler;
 	WorldProperties properties;
 	WorldOctreeNode octree;
-	MemoryPool<WorldOctreeNode, 65536> node_pool;
-	MemoryPool<CubicChunk, 65536> chunk_pool;
+	MemoryPool<WorldOctreeNode> node_pool;
+	MemoryPool<DMCChunk> chunk_pool;
 	std::list<WorldOctreeNode*> leaves;
 	SmartContainer<DualVertex> v_out;
 	SmartContainer<uint32_t> i_out;
@@ -76,7 +76,7 @@ public:
 	double upload_all();
 	void upload_batch(SmartContainer<WorldOctreeNode*>& batch);
 	void generate_outline(SmartContainer<WorldOctreeNode*>& batch);
-	CubicChunk* get_chunk_id_at(glm::vec3 p);
+	DMCChunk* get_chunk_id_at(glm::vec3 p);
 
 	void init_updates(glm::vec3 focus_pos);
 	void update(glm::vec3 pos);

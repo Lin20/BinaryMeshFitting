@@ -1,9 +1,11 @@
 #include "PCH.h"
 #include "WorldOctreeNode.hpp"
 #include "CubicChunk.hpp"
+#include "DMCChunk.hpp"
 #include "Tables.hpp"
 #include "DefaultOptions.h"
 #include "ResourceAllocator.hpp"
+#include "DMCChunk.hpp"
 
 WorldOctreeNode::WorldOctreeNode() : OctreeNode()
 {
@@ -67,7 +69,7 @@ bool WorldOctreeNode::format(ResourceAllocator<GLChunk>* allocator)
 			if (!gl_chunk)
 				return false;
 		}
-		gl_chunk->format_data(chunk->vi->vertices, chunk->vi->mesh_indexes, FLAT_QUADS, SMOOTH_NORMALS);
+		gl_chunk->format_data(chunk->vi->vertices, chunk->vi->mesh_indexes, false, false);
 		
 	}
 
@@ -80,7 +82,8 @@ bool WorldOctreeNode::upload()
 	{
 		assert(gl_chunk);
 		gl_chunk->init(true, true);
-		return gl_chunk->set_data(&chunk->vi->mesh_indexes, FLAT_QUADS);
+		return gl_chunk->set_data(gl_chunk->p_data, gl_chunk->c_data, &chunk->vi->mesh_indexes);
+		//return gl_chunk->set_data(&chunk->vi->mesh_indexes, FLAT_QUADS);
 	}
 
 	return true;
@@ -236,4 +239,22 @@ OctreeNode* OctreeNode::get_node_at(glm::vec3 p)
 	}
 
 	return 0;
+}
+
+DMCNode::DMCNode() : OctreeNode()
+{
+	world_node_flag = false;
+	leaf_flag = true;
+	sample = 0.0f;
+}
+
+DMCNode::DMCNode(DMCChunk* _chunk, float _size, glm::vec3 _pos, glm::ivec3 _xyz, uint8_t _level, uint32_t _int_size, float _sample) : OctreeNode(0, 0, _size, _pos, _level)
+{
+	world_node_flag = false;
+	leaf_flag = true;
+	root = _chunk;
+	uint32_t dim = _chunk->dim;
+	xyz = _xyz;
+	i_size = _int_size;
+	sample = _sample;
 }

@@ -6,6 +6,7 @@
 #include "NoiseSampler.hpp"
 #include "MeshProcessor.hpp"
 #include "CubicChunk.hpp"
+#include "DMCChunk.hpp"
 #include <time.h>
 #include <iostream>
 #include <omp.h>
@@ -51,7 +52,7 @@ DebugScene::DebugScene(RenderInput* render_input)
 	this->flat_quads = FLAT_QUADS;
 	this->cull = true;
 	this->gui_visible = true;
-	this->update_focus = false;
+	this->update_focus = true;
 	this->line_width = 1.0f;
 	this->specular_power = SPECULAR_POWER;
 
@@ -93,7 +94,7 @@ DebugScene::DebugScene(RenderInput* render_input)
 		"out float log_z;"
 		"void main() {\n"
 		"  f_normal = normalize(vertex_normal);\n"
-		"  f_color = vertex_color;\n"
+		"  f_color = vertex_normal;\n"
 		"  f_mul_color = mul_color;\n"
 		"  f_smooth_shading = smooth_shading;\n"
 		"  f_specular_power = specular_power;\n"
@@ -222,10 +223,12 @@ DebugScene::DebugScene(RenderInput* render_input)
 
 	dual_chunk = 0;
 	binary_chunk = 0;
+	dmc_chunk = 0;
 
 	init_world();
 	//init_single_chunk();
 	//init_binary_chunk();
+	//init_dmc_chunk();
 }
 
 DebugScene::~DebugScene()
@@ -234,6 +237,7 @@ DebugScene::~DebugScene()
 
 	delete dual_chunk;
 	delete binary_chunk;
+	delete dmc_chunk;
 	ImGui_ImplGlfwGL3_Shutdown();
 }
 
@@ -362,6 +366,32 @@ void DebugScene::init_binary_chunk()
 	delete sampler.noise_sampler;
 }
 
+void DebugScene::init_dmc_chunk()
+{
+	using namespace std;
+	const int test_size = 256;
+	//Sampler sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::plane_y);
+	//sampler.block = ImplicitFunctions::torus_z_block;
+	Sampler sampler;
+	NoiseSamplers::create_sampler_terrain_pert_3d(&sampler);
+	cout << "Noise SIMD instruction set: " << get_simd_text() << endl;
+	sampler.world_size = 256;
+
+	SmartContainer<DualVertex> v_out(0);
+	SmartContainer<uint32_t> i_out(262144);
+
+	dmc_chunk = new DMCChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler);
+	double extract_time = dmc_chunk->extract(v_out, i_out, false);
+
+	cout << endl << "Full extraction took " << (int)((extract_time) / (double)CLOCKS_PER_SEC * 1000.0) << "ms" << endl;
+
+	gl_chunk.init(true, true);
+	gl_chunk.format_data(v_out, i_out, false, smooth_shading);
+	gl_chunk.set_data(gl_chunk.p_data, gl_chunk.c_data, &i_out);
+
+	delete sampler.noise_sampler;
+}
+
 void DebugScene::init_world()
 {
 	world.init(256);
@@ -381,7 +411,7 @@ int DebugScene::update(RenderInput* input)
 {
 	glfwPollEvents();
 	camera.update(input);
-	if(update_focus)
+	if (update_focus)
 	{
 		std::unique_lock<std::mutex> l(world.watcher._mutex);
 		world.watcher.focus_pos = camera.v_position + camera.v_velocity * 0.0f;
@@ -468,6 +498,10 @@ void DebugScene::render_binary_chunk()
 {
 }
 
+void DebugScene::render_dmc_chunk()
+{
+}
+
 void DebugScene::render_world()
 {
 	std::unique_lock<std::mutex> draw_lock(world.watcher.renderables_mutex);
@@ -511,10 +545,7 @@ void DebugScene::render_world()
 		if (world.properties.enable_stitching)
 		{
 			glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
-			if (!flat_quads || !QUADS)
-				glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), world.watcher.generator.stitcher.gl_chunk.p_count, GL_UNSIGNED_INT, 0);
-			else
-				glDrawArrays(GL_QUADS, 0, world.watcher.generator.stitcher.gl_chunk.p_count);
+			glDrawArrays(GL_TRIANGLES, 0, world.watcher.generator.stitcher.gl_chunk.v_count);
 		}
 
 		//glDisable(GL_POLYGON_OFFSET_FILL);
@@ -554,10 +585,7 @@ void DebugScene::render_world()
 		if (world.properties.enable_stitching)
 		{
 			glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
-			if (!flat_quads || !QUADS)
-				glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), world.watcher.generator.stitcher.gl_chunk.p_count, GL_UNSIGNED_INT, 0);
-			else
-				glDrawArrays(GL_QUADS, 0, world.watcher.generator.stitcher.gl_chunk.p_count);
+			glDrawArrays(GL_TRIANGLES, 0, world.watcher.generator.stitcher.gl_chunk.v_count);
 		}
 	}
 
@@ -621,11 +649,17 @@ void DebugScene::key_callback(int key, int scancode, int action, int mods)
 		}
 		if (key == GLFW_KEY_KP_ADD)
 		{
-			world.properties.max_level = min(32, world.properties.max_level + 1);
+			if (!(mods & GLFW_MOD_SHIFT))
+				world.properties.max_level = min(32, world.properties.max_level + 1);
+			else
+				world.properties.min_level = min(32, world.properties.min_level + 1);
 		}
 		if (key == GLFW_KEY_KP_SUBTRACT)
 		{
-			world.properties.max_level = max(1, world.properties.max_level - 1);
+			if (!(mods & GLFW_MOD_SHIFT))
+				world.properties.max_level = max(1, world.properties.max_level - 1);
+			else
+				world.properties.min_level = max(1, world.properties.min_level - 1);
 		}
 	}
 }
@@ -671,7 +705,7 @@ void DebugScene::render_gui()
 
 	ImGui::Columns(1);
 
-	CubicChunk* in_chunk = world.get_chunk_id_at(camera.v_position);
+	DMCChunk* in_chunk = world.get_chunk_id_at(camera.v_position);
 	ImGui::Text("Chunk: %i", (in_chunk ? in_chunk->id : -1));
 	ImGui::Text("Node: %i", (in_chunk ? in_chunk->get_internal_node_at(camera.v_position) : -1));
 

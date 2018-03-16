@@ -43,3 +43,31 @@ struct Cell
 	uint32_t v_map[4];
 	glm::vec3 edge_verts[3];
 };
+
+struct DMC_Isovertex
+{
+	uint32_t index;
+	float value;
+	glm::vec3 position;
+};
+
+struct DMC_Edge
+{
+	bool snapped;
+	uint32_t grid_v0;
+	uint32_t grid_v1;
+	float length;
+	DMC_Isovertex iso_vertex;
+};
+
+struct DMC_Cell
+{
+	uint16_t mask;
+	DMC_Edge edges[3];
+};
+
+struct DMC_ImmediateCell
+{
+	uint16_t mask;
+	uint32_t iso_verts[20];
+};

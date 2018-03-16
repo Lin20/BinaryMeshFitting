@@ -1,6 +1,10 @@
 #include "PCH.h"
 #include "NoiseSampler.hpp"
 
+#define SET_OUT(_off, _val) \
+char* f_out = ((char*)((*out))) + offset + (_off) * stride; \
+*((float*)f_out) = (_val); \
+
 void NOISE_BLOCK(uint32_t size_x, uint32_t size_y, uint32_t size_z, float p_x, float p_y, float p_z, float scale, float** out, FastNoiseVectorSet* vectorset_out)
 {
 	if (!out)
@@ -97,16 +101,16 @@ const float NoiseSamplers::noise3d(const float resolution, const glm::vec3& p)
 	return 0;
 }
 
-const void NoiseSamplers::noise3d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out)
+const void NoiseSamplers::noise3d_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, void** out, FastNoiseVectorSet* vectorset_out, float* dest_noise, int offset, int stride, SamplerProperties* properties)
 {
-	NOISE_BLOCK(size.x, size.y, size.z, p.x, p.y, p.z, scale, out, vectorset_out);
+	/*NOISE_BLOCK(size.x, size.y, size.z, p.x, p.y, p.z, scale, out, vectorset_out);
 
 	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::ValueFractal);
 	sampler.noise_sampler->SetFractalOctaves(3);
-	sampler.noise_sampler->FillNoiseSet(*out, vectorset_out);
+	sampler.noise_sampler->FillNoiseSet(*out, vectorset_out);*/
 }
 
-const void NoiseSamplers::terrain2d_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
+const void NoiseSamplers::terrain2d_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, void ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise, int offset, int stride, SamplerProperties* properties)
 {
 	const float g_scale = 0.25f;
 	const float ym = 0.5f;
@@ -129,7 +133,8 @@ const void NoiseSamplers::terrain2d_block(const Sampler & sampler, const float r
 			for (int iz = 0; iz < size.z; iz++)
 			{
 				float n = dest_noise[ix * size.z + iz] * resolution * 0.125f;
-				(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				//(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				SET_OUT(ix * size.y * size.z + iy * size.z + iz, -dy - n);
 			}
 		}
 	}
@@ -137,18 +142,21 @@ const void NoiseSamplers::terrain2d_block(const Sampler & sampler, const float r
 	//_aligned_free(dest_noise);
 }
 
-const void NoiseSamplers::terrain2d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
+const void NoiseSamplers::terrain2d_pert_block(const Sampler& sampler, const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, void ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise, int offset, int stride, SamplerProperties* properties)
 {
-	const float g_scale = 1.0f;
-	const float nm = 128.0f;
+	const float g_scale = 0.25f;
+	const float nm = 32.0f;
 	NOISE_BLOCK(size.x, 1, size.z, p.x * g_scale, 0, p.z * g_scale, scale * g_scale, &dest_noise, vectorset_out);
 
+	int octaves = (properties ? ((NoiseSamplerProperties*)properties)->level + 2 : 12);
+
 	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::PerlinFractal);
-	sampler.noise_sampler->SetPerturbType(FastNoiseSIMD::PerturbType::None);
-	sampler.noise_sampler->SetPerturbFractalOctaves(4);
-	sampler.noise_sampler->SetPerturbAmp(1.0f);
-	sampler.noise_sampler->SetPerturbFrequency(0.5f);
-	sampler.noise_sampler->SetFractalType(FastNoiseSIMD::FractalType::RigidMulti);
+	sampler.noise_sampler->SetPerturbType(FastNoiseSIMD::PerturbType::GradientFractal);
+	//sampler.noise_sampler->SetFractalOctaves(octaves);
+	sampler.noise_sampler->SetPerturbFractalOctaves(octaves);
+	sampler.noise_sampler->SetPerturbAmp(2.0f);
+	sampler.noise_sampler->SetPerturbFrequency(0.2f);
+	sampler.noise_sampler->SetFractalType(FastNoiseSIMD::FractalType::Billow);
 	sampler.noise_sampler->FillNoiseSet(dest_noise, vectorset_out);
 
 	if (!(*out))
@@ -163,7 +171,8 @@ const void NoiseSamplers::terrain2d_pert_block(const Sampler & sampler, const fl
 			for (int iz = 0; iz < size.z; iz++)
 			{
 				float n = dest_noise[ix * size.z + iz];
-				(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n * nm;
+				//(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n * nm;
+				SET_OUT(ix * size.y * size.z + iy * size.z + iz, -dy - n * nm);
 			}
 		}
 	}
@@ -171,13 +180,13 @@ const void NoiseSamplers::terrain2d_pert_block(const Sampler & sampler, const fl
 	//_aligned_free(dest_noise);
 }
 
-const void NoiseSamplers::terrain3d_block(const Sampler & sampler, const float resolution, const glm::vec3 & p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
+const void NoiseSamplers::terrain3d_block(const Sampler & sampler, const float resolution, const glm::vec3 & p, const glm::ivec3 & size, const float scale, void ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise, int offset, int stride, SamplerProperties* properties)
 {
 	const float g_scale = 0.15f;
 	const float ym = 0.5f;
 	NOISE_BLOCK(size.x, size.y, size.z, p.x * g_scale, p.y * g_scale, p.z * g_scale, scale * g_scale, &dest_noise, vectorset_out);
 
-	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::SimplexFractal);
+	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::ValueFractal);
 	sampler.noise_sampler->SetFractalOctaves(4);
 	sampler.noise_sampler->SetFractalType(FastNoiseSIMD::FractalType::RigidMulti);
 	sampler.noise_sampler->FillNoiseSet(dest_noise, vectorset_out);
@@ -193,8 +202,9 @@ const void NoiseSamplers::terrain3d_block(const Sampler & sampler, const float r
 			dy = ((float)iy * scale + p.y) * g_scale * ym;
 			for (int iz = 0; iz < size.z; iz++)
 			{
-				float n = dest_noise[ix * size.y * size.z + iy * size.z + iz] * resolution * 0.1f;
-				(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				float n = dest_noise[ix * size.y * size.z + iy * size.z + iz];
+				//(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				SET_OUT(ix * size.y * size.z + iy * size.z + iz, -dy - n);
 			}
 		}
 	}
@@ -202,16 +212,16 @@ const void NoiseSamplers::terrain3d_block(const Sampler & sampler, const float r
 	//_aligned_free(dest_noise);
 }
 
-const void NoiseSamplers::terrain3d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3 & p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet * vectorset_out, float* dest_noise)
+const void NoiseSamplers::terrain3d_pert_block(const Sampler & sampler, const float resolution, const glm::vec3 & p, const glm::ivec3 & size, const float scale, void ** out, FastNoiseVectorSet* vectorset_out, float* dest_noise, int offset, int stride, SamplerProperties* properties)
 {
-	const float g_scale = 0.25f;
-	const float ym = 0.5f;
+	const float g_scale = 0.15f;
+	const float nm = 48.0f;
 	NOISE_BLOCK(size.x, size.y, size.z, p.x * g_scale, p.y * g_scale, p.z * g_scale, scale * g_scale, &dest_noise, vectorset_out);
 
-	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::ValueFractal);
+	sampler.noise_sampler->SetNoiseType(FastNoiseSIMD::NoiseType::SimplexFractal);
 	sampler.noise_sampler->SetPerturbType(FastNoiseSIMD::PerturbType::GradientFractal);
-	sampler.noise_sampler->SetFractalOctaves(6);
-	sampler.noise_sampler->SetPerturbAmp(1.0f);
+	sampler.noise_sampler->SetFractalOctaves(8);
+	sampler.noise_sampler->SetPerturbAmp(1.0);
 	sampler.noise_sampler->SetPerturbFrequency(0.5f);
 	sampler.noise_sampler->SetFractalType(FastNoiseSIMD::FractalType::FBM);
 	sampler.noise_sampler->FillNoiseSet(dest_noise, vectorset_out);
@@ -224,11 +234,12 @@ const void NoiseSamplers::terrain3d_pert_block(const Sampler & sampler, const fl
 	{
 		for (int iy = 0; iy < size.y; iy++)
 		{
-			dy = ((float)iy * scale + p.y) * g_scale * ym;
+			dy = ((float)iy * scale + p.y) * g_scale;
 			for (int iz = 0; iz < size.z; iz++)
 			{
-				float n = dest_noise[ix * size.y * size.z + iy * size.z + iz] * resolution * 0.25f;
-				(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				float n = dest_noise[ix * size.y * size.z + iy * size.z + iz];
+				//(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				SET_OUT(ix * size.y * size.z + iy * size.z + iz, -dy - n * nm);
 			}
 		}
 	}
@@ -236,7 +247,7 @@ const void NoiseSamplers::terrain3d_pert_block(const Sampler & sampler, const fl
 	//_aligned_free(dest_noise);
 }
 
-const void NoiseSamplers::windy3d_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3 & size, const float scale, float ** out, FastNoiseVectorSet* vectorset_out, float* dest_noise)
+const void NoiseSamplers::windy3d_block(const Sampler & sampler, const float resolution, const glm::vec3& p, const glm::ivec3 & size, const float scale, void ** out, FastNoiseVectorSet* vectorset_out, float* dest_noise, int offset, int stride, SamplerProperties* properties)
 {
 	const float g_scale = 0.25f;
 	const float ym = 0.5f;
@@ -279,7 +290,8 @@ const void NoiseSamplers::windy3d_block(const Sampler & sampler, const float res
 			for (int iz = 0; iz < size.z; iz++)
 			{
 				float n = final_noise[ix * size.y * size.z + iy * size.z + iz] * resolution * 0.5f;
-				(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				//(*out)[ix * size.y * size.z + iy * size.z + iz] = -dy - n;
+				SET_OUT(ix * size.y * size.z + iy * size.z + iz, -dy - n);
 			}
 		}
 	}

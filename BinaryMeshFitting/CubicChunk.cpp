@@ -77,7 +77,7 @@ void CubicChunk::generate_samples(ResourceAllocator<BinaryBlock>* binary_allocat
 	float_block = float_allocator->new_element();
 	float_block->init(dimp1 * dimp1 * dimp1, dimp1 * dimp1 * dimp1);
 
-	sampler.block(res, pos, ivec3(dimp1, dimp1, dimp1), delta * scale, &float_block->data, &float_block->vectorset, float_block->dest_noise);
+	sampler.block(res, pos, ivec3(dimp1, dimp1, dimp1), delta * scale, (void**)&float_block->data, &float_block->vectorset, float_block->dest_noise, 0, sizeof(float), 0);
 
 	vec3 dxyz;
 	auto f = sampler.value;

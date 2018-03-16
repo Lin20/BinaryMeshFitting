@@ -37,7 +37,7 @@ private:
 	std::thread _thread;
 	std::atomic<bool> _stop;
 
-	void check_leaves(SmartContainer<class WorldOctreeNode*>& batch_out);
+	void check_leaves(SmartContainer<class WorldOctreeNode*>& batch_out, const int max_gen);
 	void handle_split_check(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out);
 	void handle_group_check(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out);
 	void handle_dangling_check(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out);

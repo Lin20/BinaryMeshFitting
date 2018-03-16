@@ -78,7 +78,7 @@ void BinaryChunk::generate_samples()
 
 	float* block_data = 0;
 	FastNoiseVectorSet vector_set;
-	sampler.block(res, pos, ivec3(dim, dim, dim), delta * scale, &block_data, &vector_set, 0);
+	sampler.block(res, pos, ivec3(dim, dim, dim), delta * scale, (void**)&block_data, &vector_set, 0, 0, sizeof(float), 0);
 
 	vec3 dxyz;
 	auto f = sampler.value;

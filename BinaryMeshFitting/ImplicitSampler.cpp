@@ -16,7 +16,8 @@
 					for (int z = 0; z < size.z; z++) \
 					{ \
 						dxyz.z = p.z + (float)z * scale; \
-						(*out)[x * size.y * size.z + y * size.z + z] = f(resolution, dxyz); \
+						char* f_out = ((char*)((*out))) + offset + (x * size.y * size.z + y * size.z + z) * stride; \
+						*((float*)f_out) = f(resolution, dxyz); \
 					} \
 				} \
 			}
@@ -32,12 +33,12 @@ namespace ImplicitFunctions
 		return -(len - r2);
 	}
 
-	const void torus_z_block(const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out)
+	const void torus_z_block(const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, void** out, FastNoiseVectorSet* vectorset_out, float* dest_noise, int offset, int stride, SamplerProperties* properties)
 	{
 		BLOCK(torus_z);
 	}
 
-	const void cuboid_block(const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, float** out, FastNoiseVectorSet* vectorset_out)
+	const void cuboid_block(const float resolution, const glm::vec3& p, const glm::ivec3& size, const float scale, void** out, FastNoiseVectorSet* vectorset_out, float* dest_noise, int offset, int stride, SamplerProperties* properties)
 	{
 		BLOCK(cuboid);
 	}
@@ -60,7 +61,7 @@ namespace ImplicitFunctions
 
 	const float plane_y(const float resolution, const glm::vec3 & p)
 	{
-		return -p.y + p.x + p.z;
+		return -p.y;
 	}
 
 	glm::vec3 get_intersection(glm::vec3 v0, glm::vec3 v1, float s0, float s1)

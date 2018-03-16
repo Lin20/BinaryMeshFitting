@@ -4,6 +4,10 @@
 
 namespace Tables
 {
+	static const uint32_t MCDX[] = { 0, 1, 1, 0, 0, 1, 1, 0 };
+	static const uint32_t MCDY[] = { 0, 0, 0, 0, 1, 1, 1, 1 };
+	static const uint32_t MCDZ[] = { 0, 0, 1, 1, 0, 0, 1, 1 };
+
 	static const uint32_t TDX[] = { 0, 0, 0, 0, 1, 1, 1, 1 };
 	static const uint32_t TDY[] = { 0, 0, 1, 1, 0, 0, 1, 1 };
 	static const uint32_t TDZ[] = { 0, 1, 0, 1, 0, 1, 0, 1 };

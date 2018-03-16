@@ -95,7 +95,14 @@ private:
 	SmartContainer<DualVertex> vertices;
 
 	void stitch_cell(class OctreeNode* n, SmartContainer<DualVertex>& v_out);
-	void stitch_faces(class OctreeNode* n[2], int direction, SmartContainer<DualVertex>& v_out);
-	void stitch_edges(class OctreeNode* n[4], int direction, SmartContainer<DualVertex>& v_out);
-	void stitch_indexes(class OctreeNode* n[4], int direction, SmartContainer<DualVertex>& v_out);
+
+	void stitch_face_xy(class OctreeNode* n0, class  OctreeNode* n1, SmartContainer<DualVertex>& v_out);
+	void stitch_face_zy(class OctreeNode* n0, class  OctreeNode* n1, SmartContainer<DualVertex>& v_out);
+	void stitch_face_xz(class OctreeNode* n0, class  OctreeNode* n1, SmartContainer<DualVertex>& v_out);
+
+	void stitch_edge_x(class OctreeNode* n0, class  OctreeNode* n1, class OctreeNode* n2, class  OctreeNode* n3, SmartContainer<DualVertex>& v_out);
+	void stitch_edge_y(class OctreeNode* n0, class OctreeNode* n1, class  OctreeNode* n2, class OctreeNode* n3, SmartContainer<DualVertex>& v_out);
+	void stitch_edge_z(class OctreeNode* n0, class  OctreeNode* n1, class  OctreeNode* n2, class OctreeNode* n3, SmartContainer<DualVertex>& v_out);
+
+	void stitch_indexes(class OctreeNode* n[8], SmartContainer<DualVertex>& v_out);
 };

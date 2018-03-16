@@ -28,8 +28,10 @@ public:
 	ResourceAllocator<BinaryBlock> binary_allocator;
 	ResourceAllocator<FloatBlock> float_allocator;
 	ResourceAllocator<VerticesIndicesBlock> vi_allocator;
-	ResourceAllocator<CellsBlock> cell_allocator;
+	ResourceAllocator<DMC_CellsBlock> cell_allocator;
 	ResourceAllocator<IndexesBlock> inds_allocator;
+	ResourceAllocator<IsoVertexBlock> isovertex_allocator;
+	ResourceAllocator<NoiseBlock> noise_allocator;
 
 	WorldStitcher stitcher;
 
@@ -41,7 +43,8 @@ private:
 	bool update_still_needed(class WorldOctreeNode* n);
 	void generate_chunk(class WorldOctreeNode* n);
 
-	void extract_samples(SmartContainer<class WorldOctreeNode*>& batch, ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<FloatBlock>* float_allocator);
+	void extract_chunk(SmartContainer<class WorldOctreeNode*>& batch);
+	void extract_samples(SmartContainer<class WorldOctreeNode*>& batch);
 	void extract_filter(SmartContainer<class WorldOctreeNode*>& batch);
 	void extract_dual_vertices(SmartContainer<class WorldOctreeNode*>& batch);
 	void extract_octrees(SmartContainer<class WorldOctreeNode*>& batch);

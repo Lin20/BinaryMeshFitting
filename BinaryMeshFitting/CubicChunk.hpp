@@ -21,13 +21,13 @@ public:
 	void generate_samples(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<FloatBlock>* float_allocator) final override;
 	void generate_dual_vertices(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator, ResourceAllocator<FloatBlock>* float_allocator) final override;
 	__forceinline void calculate_cell(glm::uvec3 xyz, uint32_t next_index, Cell* result, bool force, uint8_t mask);
-	__forceinline bool calculate_dual_vertex(glm::uvec3 xyz, uint32_t next_index, DualVertex* result, bool force, uint8_t mask, glm::vec3 pos_override) final override;
+	__forceinline bool calculate_dual_vertex(glm::uvec3 xyz, uint32_t next_index, DualVertex* result, bool force, uint8_t mask, glm::vec3 pos_override);
 
 	uint32_t encode_vertex(uint32_t x, uint32_t y, uint32_t z, uint32_t dim, uint32_t z_per_y, uint32_t y_per_x, uint32_t& out_mask);
 	uint32_t encode_vertex(glm::uvec3 xyz);
 
-	void calculate_valences() final override;
-	uint32_t collapse_bad_cells() final override;
+	void calculate_valences();
+	uint32_t collapse_bad_cells();
 
 	void generate_base_mesh(ResourceAllocator<VerticesIndicesBlock>* vi_allocator) final override;
 
