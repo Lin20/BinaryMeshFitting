@@ -111,7 +111,7 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 			}
 		}
 
-		batch[i]->format(&world->gl_allocator);
+		batch[i]->format(&gl_allocator);
 
 		batch[i]->generation_stage = GENERATION_STAGES_NEEDS_UPLOAD;
 	}
@@ -299,7 +299,7 @@ void ChunkGenerator::extract_format_meshes(SmartContainer<class WorldOctreeNode*
 #pragma omp for
 		for (int i = 0; i < count; i++)
 		{
-			batch[i]->format(&world->gl_allocator);
+			batch[i]->format(&gl_allocator);
 		}
 	}
 

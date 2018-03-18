@@ -18,7 +18,7 @@ void FPSCamera::init(uint32_t width, uint32_t height, RenderInput* render_input)
 	this->speed = 0.1f;
 	this->smoothness = DEFAULT_SMOOTHNESS;
 	this->rot_sensitivity = DEFAULT_ROTATION_SENSITIVITY;
-	this->v_position = vec3(0, 0, 0);
+	this->v_position = vec3(0.95f, 109.52f, -13.70f);
 	this->v_rot = vec3(0, 0, 0);
 	this->v_velocity = vec3(0, 0, 0);
 	this->v_turn_velocity = vec3(0, 0, 0);

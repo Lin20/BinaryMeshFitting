@@ -149,15 +149,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="BinaryChunk.cpp" />
-    <ClCompile Include="Chunk.cpp" />
     <ClCompile Include="ChunkGenerator.cpp" />
     <ClCompile Include="ColorMapper.cpp" />
     <ClCompile Include="Core.cpp" />
-    <ClCompile Include="CubicChunk.cpp" />
     <ClCompile Include="DebugScene.cpp" />
     <ClCompile Include="DMCChunk.cpp" />
-    <ClCompile Include="DualChunk.cpp" />
     <ClCompile Include="DynamicGLChunk.cpp" />
     <ClCompile Include="Entry.cpp" />
     <ClCompile Include="FPSCamera.cpp" />
@@ -189,17 +185,14 @@
     <ClCompile Include="WorldOctreeNode.cpp" />
     <ClCompile Include="WorldStitcher.cpp" />
     <ClCompile Include="WorldWatcher.cpp" />
-    <ClInclude Include="BinaryChunk.hpp" />
-    <ClInclude Include="Chunk.hpp" />
     <ClInclude Include="ChunkBlocks.hpp" />
     <ClInclude Include="ChunkGenerator.hpp" />
     <ClInclude Include="ColorMapper.hpp" />
-    <ClInclude Include="CubicChunk.hpp" />
     <ClInclude Include="Debug.h" />
     <ClInclude Include="DefaultOptions.h" />
     <ClInclude Include="DMCChunk.hpp" />
-    <ClInclude Include="DualChunk.hpp" />
     <ClInclude Include="DynamicGLChunk.hpp" />
+    <ClInclude Include="HashMap.hpp" />
     <ClInclude Include="MCTable.h" />
     <ClInclude Include="ResourceAllocator.hpp" />
     <ClInclude Include="GLChunk.hpp" />

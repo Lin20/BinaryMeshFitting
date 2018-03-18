@@ -4,10 +4,8 @@
 #define GLFW_DLL
 #include <GLFW/glfw3.h>
 #include "FPSCamera.hpp"
-#include "Chunk.hpp"
 #include "GLChunk.hpp"
 #include "WorldOctree.hpp"
-#include "BinaryChunk.hpp"
 
 #include <thread>
 #include <mutex>
@@ -53,31 +51,23 @@ class DebugScene
 	GLint outline_shader_mul_clr;
 
 	class FPSCamera camera;
-	Chunk* dual_chunk;
 	GLChunk gl_chunk;
 	WorldOctree world;
 
-	BinaryChunk* binary_chunk;
 	class DMCChunk* dmc_chunk;
 
 	std::mutex gl_mutex;
 	clock_t last_extraction;
-	bool update_required;
-	std::mutex update_mutex;
 
 public:
 	DebugScene(struct RenderInput* input);
 	~DebugScene();
 
-	void init_single_chunk();
-	void init_binary_chunk();
 	void init_dmc_chunk();
 	void init_world();
 	int update(struct RenderInput* input);
 	int render(struct RenderInput* input);
 
-	void render_single_chunk();
-	void render_binary_chunk();
 	void render_dmc_chunk();
 	void render_world();
 

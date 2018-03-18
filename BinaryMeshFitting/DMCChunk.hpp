@@ -31,6 +31,7 @@ public:
 
 	bool contains_mesh;
 	uint32_t mesh_offset;
+	uint64_t parent_code;
 
 	Sampler sampler;
 
@@ -51,13 +52,14 @@ public:
 		~children_pool() {}
 	};
 	children_pool octree_children;
+	SmartContainer<DMCNode> leaves;
 
 	DMCChunk();
-	DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler);
+	DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code);
 	~DMCChunk();
 
 	// Main pipeline
-	void init(glm::vec3 pos, float size, int level, Sampler& sampler);
+	void init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code);
 	void label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator);
 	void label_edges(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<DMC_CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator);
 	void snap_verts();

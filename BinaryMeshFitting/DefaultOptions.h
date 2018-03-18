@@ -11,4 +11,4 @@
 
 #define SPECULAR_POWER 32.0f
 
-#define FAST_GROUPING 1
+#define FAST_GROUPING 0

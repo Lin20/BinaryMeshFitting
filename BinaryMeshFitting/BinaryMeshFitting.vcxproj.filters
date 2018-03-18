@@ -30,19 +30,10 @@
     <ClCompile Include="DebugScene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DualChunk.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ImplicitSampler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GLChunk.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CubicChunk.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Chunk.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="NoiseSampler.cpp">
@@ -70,9 +61,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ColorMapper.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="BinaryChunk.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WorldWatcher.cpp">
@@ -107,9 +95,6 @@
     <ClInclude Include="DefaultOptions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DualChunk.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Vertices.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -129,12 +114,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PCH.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Chunk.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CubicChunk.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NoiseSampler.hpp">
@@ -185,9 +164,6 @@
     <ClInclude Include="ColorMapper.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BinaryChunk.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="WorldWatcher.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -222,6 +198,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MCTable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HashMap.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

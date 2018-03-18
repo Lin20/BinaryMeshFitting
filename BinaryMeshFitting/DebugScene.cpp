@@ -5,7 +5,6 @@
 #include "ImplicitSampler.hpp"
 #include "NoiseSampler.hpp"
 #include "MeshProcessor.hpp"
-#include "CubicChunk.hpp"
 #include "DMCChunk.hpp"
 #include <time.h>
 #include <iostream>
@@ -52,7 +51,7 @@ DebugScene::DebugScene(RenderInput* render_input)
 	this->flat_quads = FLAT_QUADS;
 	this->cull = true;
 	this->gui_visible = true;
-	this->update_focus = true;
+	this->update_focus = false;
 	this->line_width = 1.0f;
 	this->specular_power = SPECULAR_POWER;
 
@@ -221,13 +220,9 @@ DebugScene::DebugScene(RenderInput* render_input)
 	ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = 0.85f;
 	printf("Done.\n");
 
-	dual_chunk = 0;
-	binary_chunk = 0;
 	dmc_chunk = 0;
 
 	init_world();
-	//init_single_chunk();
-	//init_binary_chunk();
 	//init_dmc_chunk();
 }
 
@@ -235,32 +230,28 @@ DebugScene::~DebugScene()
 {
 	world.watcher.stop();
 
-	delete dual_chunk;
-	delete binary_chunk;
 	delete dmc_chunk;
 	ImGui_ImplGlfwGL3_Shutdown();
 }
 
-void DebugScene::init_single_chunk()
+void DebugScene::init_dmc_chunk()
 {
 	using namespace std;
 	const int test_size = 256;
-	//Sampler sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::sphere);
+	//Sampler sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::plane_y);
 	//sampler.block = ImplicitFunctions::torus_z_block;
 	Sampler sampler;
-	NoiseSamplers::create_sampler_noise3d(&sampler);
+	NoiseSamplers::create_sampler_terrain_pert_3d(&sampler);
 	cout << "Noise SIMD instruction set: " << get_simd_text() << endl;
 	sampler.world_size = 256;
 
 	SmartContainer<DualVertex> v_out(0);
 	SmartContainer<uint32_t> i_out(262144);
 
-	dual_chunk = new CubicChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler, QUADS);
-	double extract_time = dual_chunk->extract(v_out, i_out, false);
+	dmc_chunk = new DMCChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler, 1);
+	double extract_time = dmc_chunk->extract(v_out, i_out, false);
 
-	clock_t start_clock = clock();
-	cout << "Processing...";
-
+	/*cout << "Processing...";
 	int iters = 15;
 	if (iters > 0 || !QUADS)
 	{
@@ -292,96 +283,9 @@ void DebugScene::init_single_chunk()
 			i_out.count = 0;
 			mp.flush(v_out, i_out);
 		}
-	}
+	}*/
 
-	double elapsed = clock() - start_clock;
-	cout << "done (" << (int)(elapsed / (double)CLOCKS_PER_SEC * 1000.0) << "ms)" << endl;
-	cout << endl << "Full extraction took " << (int)((elapsed + extract_time) / (double)CLOCKS_PER_SEC * 1000.0) << "ms" << endl;
-
-	gl_chunk.init(true, true);
 	gl_chunk.format_data(v_out, i_out, flat_quads, smooth_shading);
-
-	delete sampler.noise_sampler;
-}
-
-void DebugScene::init_binary_chunk()
-{
-	using namespace std;
-	const int test_size = 256;
-	//Sampler sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::sphere);
-	//sampler.block = ImplicitFunctions::torus_z_block;
-	Sampler sampler;
-	NoiseSamplers::create_sampler_noise3d(&sampler);
-	cout << "Noise SIMD instruction set: " << get_simd_text() << endl;
-	sampler.world_size = 256;
-
-	SmartContainer<DualVertex> v_out(0);
-	SmartContainer<uint32_t> i_out(262144);
-
-	binary_chunk = new BinaryChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler, true);
-	double extract_time = binary_chunk->extract(v_out, i_out, false);
-
-	clock_t start_clock = clock();
-	cout << "Processing...";
-
-	int iters = 15;
-	if (iters > 0 || !QUADS)
-	{
-		Processing::MeshProcessor<4> mp(true, SMOOTH_NORMALS);
-		mp.init(v_out, i_out, sampler);
-		mp.collapse_bad_quads();
-		if (!QUADS)
-		{
-			v_out.count = 0;
-			i_out.count = 0;
-			mp.flush_to_tris(v_out, i_out);
-			Processing::MeshProcessor<3> nmp = Processing::MeshProcessor<3>(true, SMOOTH_NORMALS);
-			if (iters > 0)
-			{
-				nmp.init(v_out, i_out, sampler);
-				nmp.optimize_dual_grid(iters);
-				nmp.optimize_primal_grid(false, false);
-				v_out.count = 0;
-				i_out.count = 0;
-				nmp.flush(v_out, i_out);
-			}
-		}
-		else
-		{
-			mp.optimize_dual_grid(iters);
-			mp.optimize_primal_grid(false, false);
-			v_out.count = 0;
-			i_out.count = 0;
-			mp.flush(v_out, i_out);
-		}
-	}
-
-	double elapsed = clock() - start_clock;
-	cout << "done (" << (int)(elapsed / (double)CLOCKS_PER_SEC * 1000.0) << "ms)" << endl;
-	cout << endl << "Full extraction took " << (int)((elapsed + extract_time) / (double)CLOCKS_PER_SEC * 1000.0) << "ms" << endl;
-
-	gl_chunk.init(true, true);
-	gl_chunk.format_data(v_out, i_out, flat_quads, smooth_shading);
-
-	delete sampler.noise_sampler;
-}
-
-void DebugScene::init_dmc_chunk()
-{
-	using namespace std;
-	const int test_size = 256;
-	//Sampler sampler = ImplicitFunctions::create_sampler(ImplicitFunctions::plane_y);
-	//sampler.block = ImplicitFunctions::torus_z_block;
-	Sampler sampler;
-	NoiseSamplers::create_sampler_terrain_pert_3d(&sampler);
-	cout << "Noise SIMD instruction set: " << get_simd_text() << endl;
-	sampler.world_size = 256;
-
-	SmartContainer<DualVertex> v_out(0);
-	SmartContainer<uint32_t> i_out(262144);
-
-	dmc_chunk = new DMCChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler);
-	double extract_time = dmc_chunk->extract(v_out, i_out, false);
 
 	cout << endl << "Full extraction took " << (int)((extract_time) / (double)CLOCKS_PER_SEC * 1000.0) << "ms" << endl;
 
@@ -402,8 +306,6 @@ void DebugScene::init_world()
 	world.process_all();
 	world.upload_all();*/
 
-	update_required = false;
-
 	last_extraction = clock();
 }
 
@@ -414,7 +316,7 @@ int DebugScene::update(RenderInput* input)
 	if (update_focus)
 	{
 		std::unique_lock<std::mutex> l(world.watcher._mutex);
-		world.watcher.focus_pos = camera.v_position + camera.v_velocity * 0.0f;
+		world.watcher.focus_pos = camera.v_position + camera.v_velocity * 8.0f;
 	}
 
 	return 0;
@@ -444,58 +346,6 @@ int DebugScene::render(RenderInput* input)
 	}
 
 	return 0;
-}
-
-void DebugScene::render_single_chunk()
-{
-	if (fillmode == FILL_MODE_FILL || fillmode == FILL_MODE_BOTH)
-	{
-		//glEnable(GL_POLYGON_OFFSET_FILL);
-		//glPolygonOffset(1.0f, 1);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		glCullFace(GL_FRONT);
-		if (cull)
-			glEnable(GL_CULL_FACE);
-		else
-			glDisable(GL_CULL_FACE);
-		glUniform3f(shader_mul_clr, fill_color[0], fill_color[1], fill_color[2]);
-		glUniform1f(shader_smooth_shading, (smooth_shading || flat_quads ? 1.0f : 0.0f));
-		glUniform1f(shader_specular_power, specular_power);
-
-		glBindVertexArray(gl_chunk.vao);
-		if (!flat_quads || !QUADS)
-			glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), gl_chunk.p_count, GL_UNSIGNED_INT, 0);
-		else
-			glDrawArrays(GL_QUADS, 0, gl_chunk.p_count);
-
-		//glDisable(GL_POLYGON_OFFSET_FILL);
-	}
-	if (fillmode == FILL_MODE_BOTH)
-	{
-		glUseProgram(outline_sp);
-		camera.set_shader(outline_shader_projection, outline_shader_view);
-		glLineWidth(line_width);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		glCullFace(GL_FRONT);
-		if (cull)
-			glEnable(GL_CULL_FACE);
-		else
-			glDisable(GL_CULL_FACE);
-		//glPolygonOffset(-0.1f, 1);
-		glUniform3f(outline_shader_mul_clr, line_color[0], line_color[1], line_color[2]);
-
-		glBindVertexArray(gl_chunk.vao);
-		if (!flat_quads || !QUADS)
-			glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), gl_chunk.p_count, GL_UNSIGNED_INT, 0);
-		else
-			glDrawArrays(GL_QUADS, 0, gl_chunk.p_count);
-	}
-
-	glBindVertexArray(0);
-}
-
-void DebugScene::render_binary_chunk()
-{
 }
 
 void DebugScene::render_dmc_chunk()

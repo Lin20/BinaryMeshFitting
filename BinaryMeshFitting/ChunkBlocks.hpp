@@ -36,43 +36,6 @@ struct BinaryBlock : public LinkedNode<BinaryBlock>
 	}
 };
 
-struct FloatBlock : public LinkedNode<FloatBlock>
-{
-	uint32_t size;
-	float* data;
-	float* dest_noise;
-	FastNoiseVectorSet vectorset;
-	bool initialized;
-
-	inline FloatBlock()
-	{
-		initialized = false;
-		size = 0;
-		data = 0;
-		dest_noise = 0;
-	}
-
-	inline ~FloatBlock()
-	{
-		_aligned_free(data);
-		_aligned_free(dest_noise);
-		size = 0;
-		initialized = false;
-	}
-
-	void init(uint32_t _raw_size, uint32_t noise_size)
-	{
-		if (initialized)
-			return;
-		_aligned_free(data);
-		_aligned_free(dest_noise);
-		data = (float*)_aligned_malloc(sizeof(float) * _raw_size, 16);
-		dest_noise = (float*)_aligned_malloc(sizeof(float) * noise_size, 16);
-		vectorset.SetSize(noise_size);
-		initialized = true;
-	}
-};
-
 struct IsoVertexBlock : public LinkedNode<IsoVertexBlock>
 {
 	uint32_t size;
@@ -152,24 +115,6 @@ struct VerticesIndicesBlock : public LinkedNode<VerticesIndicesBlock>
 	{
 		vertices.count = 0;
 		mesh_indexes.count = 0;
-	}
-};
-
-struct CellsBlock : public LinkedNode<CellsBlock>
-{
-	SmartContainer<Cell> cells;
-
-	inline CellsBlock()
-	{
-	}
-
-	inline ~CellsBlock()
-	{
-	}
-
-	void init()
-	{
-		cells.count = 0;
 	}
 };
 

@@ -37,9 +37,9 @@ DMCChunk::DMCChunk()
 	density_block = 0;
 }
 
-DMCChunk::DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler)
+DMCChunk::DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code)
 {
-	init(pos, size, level, sampler);
+	init(pos, size, level, sampler, parent_code);
 }
 
 DMCChunk::~DMCChunk()
@@ -48,13 +48,12 @@ DMCChunk::~DMCChunk()
 	{
 		octree_children.node_pool.~MemoryPool();
 	}
-	else if (!octree.leaf_flag)
+	else if(!octree.leaf_flag)
 	{
-
 	}
 }
 
-void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler)
+void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code)
 {
 	this->pos = pos;
 	this->dim = RESOLUTION;
@@ -72,6 +71,7 @@ void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler)
 	this->density_block = 0;
 	this->binary_block = 0;
 	this->octree.leaf_flag = true;
+	this->parent_code = parent_code;
 }
 
 void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator)
@@ -683,7 +683,9 @@ void DMCChunk::generate_octree()
 	int next_id = 0;
 	octree = DMCNode(this, size, pos, ivec3(0, 0, 0), 0, dim, 0.0f);
 	octree.leaf_flag = false;
+	octree.morton_code = parent_code;
 	int local_dim = dim;
+	uint64_t local_parent = parent_code;
 
 	if (!contains_mesh)
 	{
@@ -695,7 +697,13 @@ void DMCChunk::generate_octree()
 		{
 			ivec3 cxyz = ivec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * (int)i_size;
 			octree_children.children[i] = DMCNode(this, c_size, pos + vec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * c_size, cxyz, c_level, i_size, get_sample(cxyz.x, cxyz.y, cxyz.z, local_dim, i_size, density_block));
+			uint64_t code = 0;
+			code |= Tables::MCDX[i];
+			code |= Tables::MCDY[i] << 1;
+			code |= Tables::MCDZ[i] << 2;
+			octree_children.children[i].morton_code = (local_parent << 3) | code;
 			octree.children[i] = &octree_children.children[i];
+			leaves.push_back(octree_children.children[i]);
 		}
 		return;
 	}
@@ -715,6 +723,7 @@ void DMCChunk::generate_octree()
 		float c_size = n->size * 0.5f;
 		int c_level = n->level + 1;
 		n->leaf_flag = false;
+		uint64_t parent_code = n->morton_code.code;
 		for (int i = 0; i < 8; i++)
 		{
 			ivec3 cxyz = n->xyz + ivec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * (int)i_size;
@@ -727,8 +736,17 @@ void DMCChunk::generate_octree()
 					one_count++;
 				}
 				n->children[i] = octree_children.node_pool.newElement(this, c_size, n->pos + vec3(Tables::MCDX[i], Tables::MCDY[i], Tables::MCDZ[i]) * c_size, cxyz, c_level, i_size, s);
+
+				uint64_t code = 0;
+				code |= Tables::MCDX[i];
+				code |= Tables::MCDY[i] << 1;
+				code |= Tables::MCDZ[i] << 2;
+				n->children[i]->morton_code = (parent_code << 3) | code;
+
 				if (i_size > 1)
 					next_split.push((DMCNode*)n->children[i]);
+				else
+					leaves.push_back(*(DMCNode*)n->children[i]);
 			}
 			else
 				n->children[i] = 0;

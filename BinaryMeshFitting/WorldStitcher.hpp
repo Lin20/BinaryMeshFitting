@@ -9,6 +9,8 @@
 #include "ThreadDebug.hpp"
 #include "SmartContainer.hpp"
 #include "GLChunk.hpp"
+#include "HashMap.hpp"
+#include "WorldOctreeNode.hpp"
 
 typedef enum STITCHING_STAGES
 {
@@ -22,56 +24,6 @@ typedef enum STITCHING_STAGES
 	STITCHING_STAGES_UPLOADED = 7
 };
 
-typedef enum STITCHING_OPERATIONS
-{
-	STITCHING_OPERATIONS_CELL = 0,
-	STITCHING_OPERATIONS_FACE = 1,
-	STITCHING_OPERATIONS_EDGE = 2,
-	STITCHING_OPERATIONS_INDEXES = 3
-};
-
-struct StitchOperation
-{
-	STITCHING_OPERATIONS op;
-	int dir;
-	class OctreeNode* cells[4];
-
-	StitchOperation()
-	{
-		op = STITCHING_OPERATIONS_CELL;
-		dir = 0;
-		cells[0] = 0;
-		cells[1] = 0;
-		cells[2] = 0;
-		cells[3] = 0;
-	}
-
-	StitchOperation(STITCHING_OPERATIONS _op, int _dir, class OctreeNode** _cells)
-	{
-		op = _op;
-		dir = _dir;
-		switch (_op)
-		{
-		case STITCHING_OPERATIONS_CELL:
-			cells[0] = _cells[0];
-			break;
-
-		case STITCHING_OPERATIONS_FACE:
-			cells[0] = _cells[0];
-			cells[1] = _cells[1];
-			break;
-
-		case STITCHING_OPERATIONS_EDGE:
-		case STITCHING_OPERATIONS_INDEXES:
-			cells[0] = _cells[0];
-			cells[1] = _cells[1];
-			cells[2] = _cells[2];
-			cells[3] = _cells[3];
-			break;
-		}
-	}
-};
-
 class WorldStitcher
 {
 public:
@@ -80,6 +32,7 @@ public:
 
 	void init();
 	void stitch_all(class WorldOctreeNode* root);
+	void stitch_leaves(SmartContainer<WorldOctreeNode*> chunk_leaves, emilib::HashMap<MortonCode, class DMCNode*>& leaves);
 	void upload();
 	void format();
 
@@ -89,20 +42,25 @@ public:
 	GLChunk gl_chunk;
 	int gl_index;
 
-	std::deque<StitchOperation> queue;
-
 private:
 	SmartContainer<DualVertex> vertices;
 
 	void stitch_cell(class OctreeNode* n, SmartContainer<DualVertex>& v_out);
 
-	void stitch_face_xy(class OctreeNode* n0, class  OctreeNode* n1, SmartContainer<DualVertex>& v_out);
-	void stitch_face_zy(class OctreeNode* n0, class  OctreeNode* n1, SmartContainer<DualVertex>& v_out);
-	void stitch_face_xz(class OctreeNode* n0, class  OctreeNode* n1, SmartContainer<DualVertex>& v_out);
+	void stitch_face_xy(class OctreeNode* n0, class OctreeNode* n1, SmartContainer<DualVertex>& v_out);
+	void stitch_face_zy(class OctreeNode* n0, class OctreeNode* n1, SmartContainer<DualVertex>& v_out);
+	void stitch_face_xz(class OctreeNode* n0, class OctreeNode* n1, SmartContainer<DualVertex>& v_out);
 
 	void stitch_edge_x(class OctreeNode* n0, class  OctreeNode* n1, class OctreeNode* n2, class  OctreeNode* n3, SmartContainer<DualVertex>& v_out);
 	void stitch_edge_y(class OctreeNode* n0, class OctreeNode* n1, class  OctreeNode* n2, class OctreeNode* n3, SmartContainer<DualVertex>& v_out);
 	void stitch_edge_z(class OctreeNode* n0, class  OctreeNode* n1, class  OctreeNode* n2, class OctreeNode* n3, SmartContainer<DualVertex>& v_out);
 
 	void stitch_indexes(class OctreeNode* n[8], SmartContainer<DualVertex>& v_out);
+
+	void stitch_leaf(DMCNode* n, emilib::HashMap<MortonCode, class DMCNode*>& leaves, SmartContainer<DualVertex>& v_out);
+
+	int key2level(uint64_t key);
+	void leaf2vert(uint64_t k, uint64_t* v_out, int* lv);
+	void vert2leaf(uint64_t v, int lv, uint64_t* n_out);
+	void stitch_mc(DMCNode* nodes[8], SmartContainer<DualVertex>& v_out);
 };

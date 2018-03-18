@@ -4,10 +4,13 @@
 #include <mutex>
 #include <atomic>
 #include <list>
+#include <unordered_map>
 #include <glm/glm.hpp>
 #include "ThreadDebug.hpp"
 #include "SmartContainer.hpp"
 #include "ChunkGenerator.hpp"
+#include "WorldOctreeNode.hpp"
+#include "HashMap.hpp"
 
 class WorldWatcher : public ThreadDebug
 {
@@ -32,6 +35,9 @@ public:
 	ChunkGenerator generator;
 	std::condition_variable upload_cv;
 
+	emilib::HashMap<MortonCode, DMCNode*> leaf_nodes;
+	SmartContainer<WorldOctreeNode*> stitch_leaves;
+
 private:
 	class WorldOctree* world;
 	std::thread _thread;
@@ -40,7 +46,6 @@ private:
 	void check_leaves(SmartContainer<class WorldOctreeNode*>& batch_out, const int max_gen);
 	void handle_split_check(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out);
 	void handle_group_check(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out);
-	void handle_dangling_check(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out);
 
 	void process_batch(SmartContainer<class WorldOctreeNode*>& batch_in, SmartContainer<class WorldOctreeNode*>& batch_out);
 	void post_process_batch(SmartContainer<class WorldOctreeNode*>& batch_in);
@@ -50,4 +55,6 @@ private:
 
 	void unlink_renderable(class WorldOctreeNode* n);
 	void push_back_renderable(class WorldOctreeNode* n);
+
+	void add_leaves(class WorldOctreeNode* n);
 };

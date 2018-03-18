@@ -2,17 +2,6 @@
 #include "PCH.h"
 #include <glm/glm.hpp>
 
-struct PrimalVertex
-{
-	float s;
-	glm::vec3 p;
-	//glm::vec3 n;
-
-	inline PrimalVertex() {}
-	inline PrimalVertex(float sample, glm::vec3 pos) : s(sample), p(pos) {}
-	//inline PrimalVertex(float sample, glm::vec3 pos, glm::vec3 norm) : s(sample), p(pos), n(norm) {}
-};
-
 struct DualVertex
 {
 	uint8_t mask;
@@ -31,17 +20,6 @@ struct DualVertex
 
 	inline DualVertex() {}
 	inline DualVertex(glm::vec3 pos, glm::vec3 norm) : p(pos), n(norm) {}
-};
-
-struct Cell
-{
-	int index;
-	uint8_t mask;
-	uint16_t edge_mask;
-	glm::uvec3 xyz;
-	uint32_t edge_map;
-	uint32_t v_map[4];
-	glm::vec3 edge_verts[3];
 };
 
 struct DMC_Isovertex

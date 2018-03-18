@@ -25,8 +25,8 @@ public:
 	std::mutex _mutex;
 	std::condition_variable _cv;
 
+	ResourceAllocator<GLChunk> gl_allocator;
 	ResourceAllocator<BinaryBlock> binary_allocator;
-	ResourceAllocator<FloatBlock> float_allocator;
 	ResourceAllocator<VerticesIndicesBlock> vi_allocator;
 	ResourceAllocator<DMC_CellsBlock> cell_allocator;
 	ResourceAllocator<IndexesBlock> inds_allocator;

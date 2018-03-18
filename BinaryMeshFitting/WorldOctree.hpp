@@ -41,7 +41,6 @@ public:
 	std::list<WorldOctreeNode*> leaves;
 	SmartContainer<DualVertex> v_out;
 	SmartContainer<uint32_t> i_out;
-	GLChunk stitch_chunk;
 	GLChunk outline_chunk;
 	int next_chunk_id;
 
@@ -50,14 +49,10 @@ public:
 
 	ColorMapper color_mapper;
 
-	std::stack<WorldOctreeNode*> generate_queue;
-	std::mutex generate_mutex;
-	std::mutex chunk_mutex;
-
 	WorldWatcher watcher;
-	ResourceAllocator<GLChunk> gl_allocator;
 
 	std::atomic<bool> generator_shutdown;
+	std::mutex chunk_mutex;
 
 	WorldOctree();
 	~WorldOctree();
@@ -70,31 +65,12 @@ public:
 	bool node_needs_split(const glm::vec3& center, WorldOctreeNode* n);
 	bool node_needs_group(const glm::vec3& center, WorldOctreeNode* n);
 	void create_chunk(WorldOctreeNode* n);
-	double extract_all();
-	double color_all();
-	double process_all();
-	double upload_all();
 	void upload_batch(SmartContainer<WorldOctreeNode*>& batch);
 	void generate_outline(SmartContainer<WorldOctreeNode*>& batch);
 	DMCChunk* get_chunk_id_at(glm::vec3 p);
 
 	void init_updates(glm::vec3 focus_pos);
-	void update(glm::vec3 pos);
 	void process_from_render_thread();
 
 private:
-	void extract_samples(SmartContainer<WorldOctreeNode*>& batch);
-	void extract_filter(SmartContainer<WorldOctreeNode*>& batch);
-	void extract_dual_vertices(SmartContainer<WorldOctreeNode*>& batch);
-	void extract_octrees(SmartContainer<WorldOctreeNode*>& batch);
-	void extract_base_meshes(SmartContainer<WorldOctreeNode*>& batch);
-	void extract_copy_vis(SmartContainer<WorldOctreeNode*>& batch);
-	void extract_stitches(SmartContainer<WorldOctreeNode*>& batch);
-
-	static void stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out, SmartContainer<uint32_t>& i_out);
-	static void stitch_faces(OctreeNode* n[2], int direction, SmartContainer<DualVertex>& v_out, SmartContainer<uint32_t>& i_out);
-	static void stitch_edges(OctreeNode* n[4], int direction, SmartContainer<DualVertex>& v_out, SmartContainer<uint32_t>& i_out);
-	static void stitch_indexes(OctreeNode* n[4], int direction, SmartContainer<DualVertex>& v_out, SmartContainer<uint32_t>& i_out);
-
-	void update_leaves();
 };
