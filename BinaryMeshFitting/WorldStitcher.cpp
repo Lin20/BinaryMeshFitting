@@ -5,6 +5,7 @@
 #include "Tables.hpp"
 #include "MCTable.h"
 #include "DMCChunk.hpp"
+#include <omp.h>
 
 WorldStitcher::WorldStitcher()
 {
@@ -22,25 +23,79 @@ void WorldStitcher::init()
 
 void WorldStitcher::stitch_all(WorldOctreeNode* root)
 {
-	vertices.count = 0;
-	OctreeNode* start = root;
-	stitch_cell(start, vertices);
-}
+	if (root->leaf_flag)
+		return;
 
-void WorldStitcher::stitch_leaves(SmartContainer<WorldOctreeNode*> chunk_leaves, emilib::HashMap<MortonCode, class DMCNode*>& sub_leaves)
-{
 	vertices.count = 0;
-	int count = (int)chunk_leaves.count;
+	SmartContainer<DualVertex> v_containers[8];
+
+	clock_t start_clock = clock();
+
+	SmartContainer<WorldOctreeNode*> cells;
+	gather_cells(root, cells);
+	int count = (int)cells.count;
+
+#pragma omp parallel for
 	for (int i = 0; i < count; i++)
 	{
-		int sub_count = (int)chunk_leaves[i]->chunk->leaves.count;
-		for (int k = 0; k < sub_count; k++)
-		{
-			stitch_leaf(&chunk_leaves[i]->chunk->leaves[k], sub_leaves, vertices);
-		}
+		int thread_id = omp_get_thread_num();
+		stitch_cell(cells[i], v_containers[thread_id]);
+	}
+	for (int i = 0; i < 8; i++)
+	{
+		vertices.push_back(v_containers[i]);
 	}
 
-	printf("Done stitching (%i verts)\n", (int)vertices.count);
+	double chunks_delta = clock() - start_clock;
+
+	using namespace std;
+	cout << "Stitched world in " << (int)(chunks_delta / (double)CLOCKS_PER_SEC * 1000.0) << "ms." << endl;
+}
+
+void WorldStitcher::stitch_all(emilib::HashMap<MortonCode, class WorldOctreeNode*>& sub_leaves, spp::sparse_hash_map<MortonCode, DMCNode*>& chunk_nodes)
+{
+	vertices.count = 0;
+	SmartContainer<WorldOctreeNode*> chunks;
+
+	clock_t start_clock = clock();
+	for (auto it = sub_leaves.begin(); it != sub_leaves.end(); ++it)
+	{
+		WorldOctreeNode* n = it->second;
+		if (!n)
+			continue;
+		if (!n->leaf_flag)
+			continue;
+		mark_chunks(it->second, sub_leaves, chunks);
+	}
+	double chunks_delta = clock() - start_clock;
+
+	using namespace std;
+	cout << "Generated " << (int)chunks.count << " dual chunks in " << (int)(chunks_delta / (double)CLOCKS_PER_SEC * 1000.0) << "ms." << endl;
+	cout << "Stitching dual chunks...";
+
+	SmartContainer<DualVertex> v_containers[8];
+	start_clock = clock();
+	int count = (int)chunks.count;
+	std::atomic<int> skipped_count = 0;
+	int ten = count / 10;
+	//#pragma omp parallel for
+	for (int i = 0; i < count; i++)
+	{
+		int thread_id = omp_get_thread_num();
+		if (!stitch_dual_chunk(chunks[i], v_containers[thread_id], sub_leaves))
+			skipped_count++;
+		if (i % ten == 0)
+			std::cout << i / ten * 10 << "%...";
+	}
+
+	for (int i = 0; i < 8; i++)
+	{
+		vertices.push_back(v_containers[i]);
+	}
+
+	double delta = clock() - start_clock;
+
+	cout << "done. Generated " << (int)vertices.count / 3 << " tris in " << (int)(delta / (double)CLOCKS_PER_SEC * 1000.0) << "ms (" << skipped_count << " skipped)" << endl;
 }
 
 void WorldStitcher::upload()
@@ -53,23 +108,54 @@ void WorldStitcher::format()
 	gl_chunk.format_data_tris(vertices);
 }
 
-void WorldStitcher::stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out)
+void WorldStitcher::gather_cells(WorldOctreeNode* n, SmartContainer<WorldOctreeNode*>& out)
+{
+	if (n->world_leaf_flag)
+	{
+		out.push_back(n);
+		return;
+	}
+	bool contains_mesh = false;
+	for (int i = 0; i < 8; i++)
+	{
+		assert(n->children[i]);
+		WorldOctreeNode* w = ((WorldOctreeNode*)n->children[i]);
+		if (!w->world_leaf_flag || w->chunk->contains_mesh)
+		{
+			contains_mesh = true;
+			break;
+		}
+	}
+	if (!contains_mesh)
+		return;
+
+	out.push_back(n);
+	if (n->world_leaf_flag)
+		return;
+
+	for (int i = 0; i < 8; i++)
+	{
+		gather_cells((WorldOctreeNode*)n->children[i], out);
+	}
+}
+
+void WorldStitcher::stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out, bool allow_children)
 {
 	if (n->leaf_flag || !n->world_node_flag)
 		return;
 
-	if (n->world_node_flag)
+	/*if (allow_children && n->world_node_flag)
 	{
-		for (int i = 0; i < 8; i++)
-		{
-			if (!n->children[i])
-				continue;
-			if (n->children[i]->world_node_flag)
-			{
-				stitch_cell(n->children[i], v_out);
-			}
-		}
+	for (int i = 0; i < 8; i++)
+	{
+	if (!n->children[i])
+	continue;
+	if (n->children[i]->world_node_flag)
+	{
+	stitch_cell(n->children[i], v_out);
 	}
+	}
+	}*/
 
 	OctreeNode* children[8];
 
@@ -107,10 +193,23 @@ void WorldStitcher::stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out
 }
 
 #define CHECK_WORLD(n) (n->world_node_flag && ((WorldOctreeNode*)n)->force_chunk_octree ? ((WorldOctreeNode*)n)->chunk->octree.children : n->children)
+
 void WorldStitcher::stitch_face_xy(OctreeNode* n0, OctreeNode* n1, SmartContainer<DualVertex>& v_out)
 {
-	if ((n0 == 0 || n1 == 0) || (n0->leaf_flag && n1->leaf_flag))
+	if ((n0 == 0 || n1 == 0))
 		return;
+	if (n0->leaf_flag && n1->leaf_flag)
+	{
+		//stitch_face(n0, n1);
+		return;
+	}
+	if (n0->world_node_flag && n1->world_node_flag)
+	{
+		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
+		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		if (w0->world_leaf_flag && w1->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh)
+			return;
+	}
 
 	OctreeNode* c0 = !n0->leaf_flag ? CHECK_WORLD(n0)[3] : n0;
 	OctreeNode* c1 = !n0->leaf_flag ? CHECK_WORLD(n0)[2] : n0;
@@ -140,6 +239,13 @@ void WorldStitcher::stitch_face_zy(OctreeNode* n0, OctreeNode* n1, SmartContaine
 {
 	if ((n0 == 0 || n1 == 0) || (n0->leaf_flag && n1->leaf_flag))
 		return;
+	if (n0->world_node_flag && n1->world_node_flag)
+	{
+		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
+		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		if (w0->world_leaf_flag && w1->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh)
+			return;
+	}
 
 	OctreeNode* c0 = !n0->leaf_flag ? CHECK_WORLD(n0)[1] : n0;
 	OctreeNode* c1 = !n1->leaf_flag ? CHECK_WORLD(n1)[0] : n1;
@@ -169,6 +275,13 @@ void WorldStitcher::stitch_face_xz(OctreeNode* n0, OctreeNode* n1, SmartContaine
 {
 	if ((n0 == 0 || n1 == 0) || (n0->leaf_flag && n1->leaf_flag))
 		return;
+	if (n0->world_node_flag && n1->world_node_flag)
+	{
+		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
+		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		if (w0->world_leaf_flag && w1->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh)
+			return;
+	}
 
 	OctreeNode* c0 = !n1->leaf_flag ? CHECK_WORLD(n1)[4] : n1;
 	OctreeNode* c1 = !n1->leaf_flag ? CHECK_WORLD(n1)[5] : n1;
@@ -346,7 +459,12 @@ Start:
 	}
 }
 
-void WorldStitcher::stitch_leaf(DMCNode* n, emilib::HashMap<MortonCode, class DMCNode*>& leaves, SmartContainer<DualVertex>& v_out)
+void WorldStitcher::stitch_face(OctreeNode * n0, OctreeNode * n1)
+{
+	printf("F");
+}
+
+void WorldStitcher::mark_chunks(WorldOctreeNode* n, emilib::HashMap<MortonCode, class WorldOctreeNode*>& leaves, SmartContainer<WorldOctreeNode*>& dest)
 {
 	if (!n)
 		return;
@@ -360,19 +478,21 @@ void WorldStitcher::stitch_leaf(DMCNode* n, emilib::HashMap<MortonCode, class DM
 		if (v_codes[i] == 0)
 			continue;
 
+		bool mesh = false;
 		uint64_t keys[8];
-		DMCNode* final_nodes[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+		WorldOctreeNode* final_nodes[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 		vert2leaf(v_codes[i], lv, keys);
 		for (int j = 0; j < 8; j++)
 		{
 			uint64_t key_j = keys[j];
-			DMCNode* node_at = leaves[key_j];
+			WorldOctreeNode* node_at = leaves[key_j];
 			if (!node_at)
 				continue;
+			final_nodes[j] = node_at;
 			if (!node_at->leaf_flag)
 				goto next_vertex;
-			//if (j < i)
-			//	goto next_vertex;
+			if (j < i)
+				goto next_vertex;
 		}
 
 		for (int j = 0; j < 8; j++)
@@ -381,6 +501,130 @@ void WorldStitcher::stitch_leaf(DMCNode* n, emilib::HashMap<MortonCode, class DM
 			{
 				final_nodes[j] = leaves[keys[j]];
 				keys[j] >>= 3;
+			}
+			if (!final_nodes[j])
+				goto next_vertex;
+		}
+
+		/*for (int i = 0; i < 8; i++)
+		{
+		if (final_nodes[i]->chunk->contains_mesh)
+		{
+		mesh = true;
+		break;
+		}
+		}*/
+		//if (mesh)
+		//{
+		for (int i = 0; i < 8; i++)
+		{
+			if (!final_nodes[i]->stitch_flag && final_nodes[i]->chunk->contains_mesh)
+			{
+				final_nodes[i]->stitch_flag = true;
+				dest.push_back(final_nodes[i]);
+			}
+		}
+		//}
+		//dest.push_back(PseudoDualChunk(final_nodes));
+		//stitch_mc(final_nodes, v_out);
+
+	next_vertex:
+		continue;
+	}
+}
+
+bool WorldStitcher::stitch_dual_chunk(WorldOctreeNode* n, SmartContainer<DualVertex>& v_out, emilib::HashMap<MortonCode, WorldOctreeNode*>& chunk_nodes)
+{
+	auto& nodes = n->chunk->nodes;
+	int count = nodes.count;
+	for (int i = 0; i < count; i++)
+	{
+		MortonCode& morton_code = nodes[i]->morton_code;
+		stitch_primal(morton_code, v_out, chunk_nodes);
+	}
+
+	return true;
+}
+
+void WorldStitcher::stitch_primal(MortonCode& morton_code, SmartContainer<DualVertex>& v_out, emilib::HashMap<MortonCode, WorldOctreeNode*>& chunk_nodes)
+{
+	uint64_t v_codes[8];
+	int lv;
+	leaf2vert(morton_code.code, v_codes, &lv);
+	for (int i = 0; i < 8; i++)
+	{
+		if (v_codes[i] == 0)
+			continue;
+		uint64_t v = v_codes[i];
+		int x = (v & 0b100) >> 2 | (v & 0b100000) >> 4 | (v & 0b100000000) >> 6 | (v & 0b100000000000) >> 8 | (v & 0b100000000000000) >> 10;
+		int y = (v & 0b010) >> 1 | (v & 0b010000) >> 3 | (v & 0b010000000) >> 5 | (v & 0b010000000000) >> 7 | (v & 0b010000000000000) >> 9;
+		int z = (v & 0b001) >> 0 | (v & 0b001000) >> 2 | (v & 0b001000000) >> 4 | (v & 0b001000000000) >> 6 | (v & 0b001000000000000) >> 8;
+		if (x != 0 && x != 31 && y != 0 && y != 31 && z != 0 && z != 31)
+			continue;
+
+		uint64_t keys[8];
+		DMCNode* final_nodes[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+		WorldOctreeNode* chunks[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+		DMCNode pseudo_nodes[8];
+		vert2leaf(v_codes[i], lv, keys);
+
+		// Get the base chunks
+		for (int j = 0; j < 8; j++)
+		{
+			uint64_t chunk_key = keys[j] >> 15;
+			WorldOctreeNode* at = 0;
+			auto f = chunk_nodes.try_get(MortonCode(chunk_key));
+			if (f)
+			{
+				at = *f;
+				if (!at)
+					continue;
+			}
+			else
+				continue;
+			if (!at->leaf_flag)
+				goto next_vertex;
+			if (j > i)
+				goto next_vertex;
+			chunks[j] = at;
+		}
+
+		// Traverse up the tree to find the existing chunks
+		for (int j = 0; j < 8; j++)
+		{
+			uint64_t chunk_key = keys[j] >> 18;
+			while (!chunks[j] && chunk_key != 0)
+			{
+				auto f = chunk_nodes.try_get(MortonCode(chunk_key));
+				if (f)
+					chunks[j] = *f;
+				chunk_key >>= 3;
+			}
+			if (!chunks[j])
+				goto next_vertex;
+		}
+
+		for (int j = 0; j < 8; j++)
+		{
+			DMCChunk* c = chunks[j]->chunk;
+			assert(c);
+			uint64_t code = keys[j] & 0x7FFF;
+			if (!c->contains_mesh)
+				code &= 7;
+			int x = (code & 0b100) >> 2 | (code & 0b100000) >> 4 | (code & 0b100000000) >> 6 | (code & 0b100000000000) >> 8 | (code & 0b100000000000000) >> 10;
+			int y = (code & 0b010) >> 1 | (code & 0b010000) >> 3 | (code & 0b010000000) >> 5 | (code & 0b010000000000) >> 7 | (code & 0b010000000000000) >> 9;
+			int z = (code & 0b001) >> 0 | (code & 0b001000) >> 2 | (code & 0b001000000) >> 4 | (code & 0b001000000000) >> 6 | (code & 0b001000000000000) >> 8;
+			assert(x < 32 && y < 32 && z < 32);
+
+			if (!c->contains_mesh)
+				final_nodes[j] = (DMCNode*)c->octree.children[code];
+			else
+			{
+				float delta = 1.0f / 32.0f * c->size;
+				pseudo_nodes[j].pos = c->pos + glm::vec3((float)x * delta, (float)y * delta, (float)z * delta);
+				pseudo_nodes[j].size = delta;
+				pseudo_nodes[j].sample = c->density_block->data[x * 32 * 32 + y * 32 + z].value;
+				final_nodes[j] = &pseudo_nodes[j];
 			}
 		}
 
@@ -405,9 +649,9 @@ int WorldStitcher::key2level(uint64_t key)
 
 void WorldStitcher::leaf2vert(uint64_t k, uint64_t* v_out, int* lv)
 {
-	const uint64_t dil_x = 0b001001001001001001001001001001001001001001001001001001001;
+	const uint64_t dil_z = 0b001001001001001001001001001001001001001001001001001001001;
 	const uint64_t dil_y = 0b010010010010010010010010010010010010010010010010010010010;
-	const uint64_t dil_z = 0b100100100100100100100100100100100100100100100100100100100;
+	const uint64_t dil_x = 0b100100100100100100100100100100100100100100100100100100100;
 
 	*lv = key2level(k);
 	uint64_t lv_k = 1ll << 3ll * (*lv);
@@ -427,10 +671,11 @@ void WorldStitcher::leaf2vert(uint64_t k, uint64_t* v_out, int* lv)
 void WorldStitcher::vert2leaf(uint64_t c, int lv, uint64_t* n_out)
 {
 	const int MAX_LEVEL = 21;
-	const uint64_t dil_x = 0b001001001001001001001001001001001001001001001001001001001;
+	const uint64_t dil_z = 0b001001001001001001001001001001001001001001001001001001001;
 	const uint64_t dil_y = 0b010010010010010010010010010010010010010010010010010010010;
-	const uint64_t dil_z = 0b100100100100100100100100100100100100100100100100100100100;
+	const uint64_t dil_x = 0b100100100100100100100100100100100100100100100100100100100;
 
+	// The paper performs the bit shifting to truncate the vertex codes because leaf2vert is supposed to produce codes at the max level, but it doesn't, so no truncation needed
 	uint64_t dc = c;// >> 3 * (MAX_LEVEL - lv);
 	for (int i = 0; i < 8; i++)
 	{
@@ -444,19 +689,17 @@ void WorldStitcher::vert2leaf(uint64_t c, int lv, uint64_t* n_out)
 
 void WorldStitcher::stitch_mc(DMCNode* nodes[8], SmartContainer<DualVertex>& v_out)
 {
-	OctreeNode* new_nodes[8] = { nodes[7], nodes[3], nodes[5], nodes[1], nodes[6], nodes[2], nodes[4], nodes[0] };
-
 	using namespace glm;
 	vec3 pos[8];
 	float samples[8];
 	int mask = 0;
 	for (int i = 0; i < 8; i++)
 	{
-		if (!new_nodes[i])
+		if (!nodes[i])
 			return;
-		float size = new_nodes[i]->size * 0.5f;
-		pos[i] = new_nodes[i]->pos + vec3(size);
-		samples[i] = ((DMCNode*)new_nodes[i])->sample;
+		float size = nodes[i]->size * 0.5f;
+		pos[i] = nodes[i]->pos + size;
+		samples[i] = nodes[i]->sample;
 		if (samples[i] < 0.0f)
 			mask |= 1 << i;
 	}

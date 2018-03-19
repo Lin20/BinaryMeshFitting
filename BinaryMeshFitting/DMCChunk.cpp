@@ -48,7 +48,7 @@ DMCChunk::~DMCChunk()
 	{
 		octree_children.node_pool.~MemoryPool();
 	}
-	else if(!octree.leaf_flag)
+	else if (!octree.leaf_flag)
 	{
 	}
 }
@@ -703,7 +703,7 @@ void DMCChunk::generate_octree()
 			code |= Tables::MCDZ[i] << 2;
 			octree_children.children[i].morton_code = (local_parent << 3) | code;
 			octree.children[i] = &octree_children.children[i];
-			leaves.push_back(octree_children.children[i]);
+			//nodes.push_back((DMCNode*)octree.children[i]);
 		}
 		return;
 	}
@@ -745,8 +745,8 @@ void DMCChunk::generate_octree()
 
 				if (i_size > 1)
 					next_split.push((DMCNode*)n->children[i]);
-				else
-					leaves.push_back(*(DMCNode*)n->children[i]);
+				//else
+				//	nodes.push_back((DMCNode*)n->children[i]);
 			}
 			else
 				n->children[i] = 0;

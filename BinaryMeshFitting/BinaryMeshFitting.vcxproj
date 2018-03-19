@@ -214,6 +214,15 @@
     <ClInclude Include="NoiseSampler.hpp" />
     <ClInclude Include="Sampler.hpp" />
     <ClInclude Include="SmartContainer.hpp" />
+    <ClInclude Include="sparsepp\spp.h" />
+    <ClInclude Include="sparsepp\spp_config.h" />
+    <ClInclude Include="sparsepp\spp_dlalloc.h" />
+    <ClInclude Include="sparsepp\spp_memory.h" />
+    <ClInclude Include="sparsepp\spp_smartptr.h" />
+    <ClInclude Include="sparsepp\spp_stdint.h" />
+    <ClInclude Include="sparsepp\spp_timer.h" />
+    <ClInclude Include="sparsepp\spp_traits.h" />
+    <ClInclude Include="sparsepp\spp_utils.h" />
     <ClInclude Include="Tables.hpp" />
     <ClInclude Include="ThreadDebug.hpp" />
     <ClInclude Include="Vertices.hpp" />

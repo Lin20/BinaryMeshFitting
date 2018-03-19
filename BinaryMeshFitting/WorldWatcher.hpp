@@ -11,6 +11,8 @@
 #include "ChunkGenerator.hpp"
 #include "WorldOctreeNode.hpp"
 #include "HashMap.hpp"
+#include "sparsepp/spp.h"
+#include <map>
 
 class WorldWatcher : public ThreadDebug
 {
@@ -35,8 +37,10 @@ public:
 	ChunkGenerator generator;
 	std::condition_variable upload_cv;
 
-	emilib::HashMap<MortonCode, DMCNode*> leaf_nodes;
-	SmartContainer<WorldOctreeNode*> stitch_leaves;
+	emilib::HashMap<MortonCode, WorldOctreeNode*> leaf_nodes;
+	//emilib::HashMap<MortonCode, DMCNode*> chunk_nodes;
+	spp::sparse_hash_map<MortonCode, DMCNode*> chunk_nodes;
+	//std::map<MortonCode, DMCNode*> chunk_nodes;
 
 private:
 	class WorldOctree* world;

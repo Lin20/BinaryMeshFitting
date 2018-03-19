@@ -1,7 +1,5 @@
 #pragma once
 
-#pragma once
-
 #include <gl/glew.h>
 #define GLFW_DLL
 #include <GLFW/glfw3.h>
@@ -17,6 +15,7 @@
 #include "ChunkBlocks.hpp"
 #include "WorldOctreeNode.hpp"
 #include "MemoryPool.h"
+#include "HashMap.hpp"
 
 class DMCChunk
 {
@@ -52,7 +51,7 @@ public:
 		~children_pool() {}
 	};
 	children_pool octree_children;
-	SmartContainer<DMCNode> leaves;
+	SmartContainer<DMCNode*> nodes;
 
 	DMCChunk();
 	DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code);

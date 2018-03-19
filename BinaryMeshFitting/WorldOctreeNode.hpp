@@ -43,9 +43,10 @@ typedef enum GENERATION_STAGES
 struct MortonCode
 {
 	uint64_t code;
+	uint32_t hash;
 
-	MortonCode() { code = 0; }
-	MortonCode(uint64_t _code) : code(_code) {}
+	MortonCode() { code = 0; calc_hash(); }
+	MortonCode(uint64_t _code) : code(_code) { calc_hash(); }
 
 	inline bool operator==(const MortonCode& other) const
 	{
@@ -57,16 +58,28 @@ struct MortonCode
 		return code == other;
 	}
 
+	inline bool operator<(const MortonCode& other) const
+	{
+		return code < other.code;
+	}
+
 	inline MortonCode& operator=(const MortonCode& other)
 	{
 		code = other.code;
+		calc_hash();
 		return *this;
 	}
 
 	inline MortonCode& operator=(const uint64_t other)
 	{
 		code = other;
+		calc_hash();
 		return *this;
+	}
+
+	inline void calc_hash()
+	{
+		hash = std::hash<uint32_t>::_Do_hash(code & 0xFFFFFFFF);
 	}
 };
 
@@ -77,15 +90,8 @@ namespace std
 	{
 		__forceinline size_t operator()(const MortonCode& o) const
 		{
-			uint32_t a = ((o.code & 0xFFFFFFFF) ^ (o.code >> 32));
-			a = (a ^ 61) ^ (a >> 16);
-			a = a + (a << 3);
-			a = a ^ (a >> 4);
-			a = a * 0x27d4eb2d;
-			a = a ^ (a >> 15);
-			return a;
-			//uint64_t morton_code = o.code;
-			//return std::hash<uint64_t>::_Do_hash(morton_code);
+			return o.hash;
+			//return (o.code & 0xFFFFFFFF) ^ (o.code >> 32);
 		}
 	};
 }
@@ -125,6 +131,7 @@ public:
 	bool world_leaf_flag;
 	bool force_chunk_octree;
 	GLChunk* gl_chunk;
+	bool stitch_flag = false;
 
 	WorldOctreeNode();
 	WorldOctreeNode(uint32_t _index, WorldOctreeNode* _parent, float _size, glm::vec3 _pos, uint8_t _level);

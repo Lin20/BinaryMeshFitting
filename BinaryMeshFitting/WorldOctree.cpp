@@ -27,7 +27,7 @@ __declspec(noinline) WorldProperties::WorldProperties()
 	num_threads = DEFAULT_THREADS;
 	process_iters = DEFAULT_ITERATIONS;
 	chunk_resolution = DEFAULT_RESOLUTION;
-	enable_stitching = true;
+	enable_stitching = false;
 }
 
 WorldOctree::WorldOctree()

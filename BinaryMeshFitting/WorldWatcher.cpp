@@ -65,8 +65,8 @@ void WorldWatcher::update()
 				generator.process_queue(generate_batch);
 				if (enable_stitching)
 				{
-					//generator.stitcher.stitch_all(&world->octree);
-					//generator.stitcher.format();
+					generator.stitcher.stitch_all(&world->octree);
+					generator.stitcher.format();
 				}
 
 				{
@@ -74,16 +74,17 @@ void WorldWatcher::update()
 					upload_cv.wait(renderables_lock);
 
 					post_process_batch(dirty_batch);
-					//if (enable_stitching)
-					//	generator.stitcher.stage = STITCHING_STAGES_NEEDS_UPLOAD;
+					if (enable_stitching)
+						generator.stitcher.stage = STITCHING_STAGES_NEEDS_UPLOAD;
 				}
 			}
 			else if (!update_flag)
 			{
 				update_flag = true;
-				generator.stitcher.stitch_leaves(stitch_leaves, leaf_nodes);
+				//generator.stitcher.stitch_all(leaf_nodes, chunk_nodes);
+				/*generator.stitcher.stitch_all(&world->octree);
 				generator.stitcher.format();
-				generator.stitcher.stage = STITCHING_STAGES_NEEDS_UPLOAD;
+				generator.stitcher.stage = STITCHING_STAGES_NEEDS_UPLOAD;*/
 			}
 		}
 
@@ -217,7 +218,7 @@ void WorldWatcher::post_process_batch(SmartContainer<class WorldOctreeNode*>& ba
 			{
 				WorldOctreeNode* c = (WorldOctreeNode*)n->children[i];
 				c->flags |= NODE_FLAGS_DRAW;
-				add_leaves(c);
+				//add_leaves(c);
 
 				//generator.vi_allocator.free_element(c->chunk->vi);
 				//c->chunk->vi = 0;
@@ -350,17 +351,16 @@ void WorldWatcher::add_leaves(WorldOctreeNode* n)
 {
 	assert(n);
 	assert(n->chunk);
-	assert(n->chunk->leaves.count > 0);
 
-	// DEBUG ONLY
+	leaf_nodes.insert(n->morton_code, n);
+
 	if (world->node_needs_split(focus_pos, n))
 		return;
 
-	int count = (int)n->chunk->leaves.count;
+	auto& nodes = n->chunk->nodes;
+	int count = nodes.count;
 	for (int i = 0; i < count; i++)
 	{
-		leaf_nodes.insert({ n->chunk->leaves[i].morton_code, &n->chunk->leaves[i] });
+		chunk_nodes.insert(std::make_pair(nodes[i]->morton_code, nodes[i]));
 	}
-	stitch_leaves.push_back(n);
-	//n->chunk->leaves.reset();
 }

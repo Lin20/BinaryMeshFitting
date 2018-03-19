@@ -318,7 +318,7 @@ namespace emilib {
 
 		/// Returns the matching ValueT or nullptr if k isn't found.
 		template<typename KeyLike>
-		ValueT* try_get(const KeyLike& k)
+		__declspec(noinline) ValueT* try_get(const KeyLike& k)
 		{
 			auto bucket = find_filled_bucket(k);
 			if (bucket != (size_t)-1) {
@@ -331,7 +331,7 @@ namespace emilib {
 
 		/// Const version of the above
 		template<typename KeyLike>
-		const ValueT* try_get(const KeyLike& k) const
+		__declspec(noinline) const ValueT* try_get(const KeyLike& k) const
 		{
 			auto bucket = find_filled_bucket(k);
 			if (bucket != (size_t)-1) {
@@ -544,13 +544,15 @@ namespace emilib {
 
 		// Find the bucket with this key, or return (size_t)-1
 		template<typename KeyLike>
-		size_t find_filled_bucket(const KeyLike& key) const
+		__declspec(noinline) size_t find_filled_bucket(const KeyLike& key) const
 		{
 			if (empty()) { return (size_t)-1; } // Optimization
 
 			auto hash_value = _hasher(key);
-			for (int offset = 0; offset <= _max_probe_length; ++offset) {
-				auto bucket = (hash_value + offset) & _mask;
+			auto local_mask = _mask;
+			int local_max = _max_probe_length + hash_value;
+			for (int offset = hash_value; offset <= local_max; ++offset) {
+				auto bucket = offset & local_mask;
 				if (_states[bucket] == State::FILLED) {
 					if (_eq(_pairs[bucket].first, key)) {
 						return bucket;
