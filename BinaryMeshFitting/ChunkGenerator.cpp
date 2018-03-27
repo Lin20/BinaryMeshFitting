@@ -64,11 +64,11 @@ bool ChunkGenerator::update_still_needed(WorldOctreeNode* n)
 	if (!n->parent)
 		return true;
 	WorldOctreeNode* p = (WorldOctreeNode*)n->parent;
-	if (!(p->flags & NODE_FLAGS_SPLIT))
-		return true;
+	//if (!(p->flags & NODE_FLAGS_SPLIT))
+	//	return true;
 
 	glm::vec3 focus_pos = world->watcher.focus_pos;
-	return world->node_needs_split(focus_pos, p);
+	return !world->node_needs_group(focus_pos, p);
 }
 
 void ChunkGenerator::generate_chunk(WorldOctreeNode* n)
@@ -78,8 +78,11 @@ void ChunkGenerator::generate_chunk(WorldOctreeNode* n)
 
 void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch)
 {
+	Sampler& sampler = world->sampler;
 	int count = (int)batch.count;
 	int i;
+	int iters = world->properties.process_iters;
+
 #pragma omp parallel for
 	for (i = 0; i < count; i++)
 	{
@@ -87,18 +90,32 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 		{
 			if (update_still_needed(batch[i]))
 			{
-				batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator);
+				batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator, iters);
 
-				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator);
+				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator, &masks_allocator);
 
-				batch[i]->chunk->generate_octree();
+				/*batch[i]->chunk->generate_octree();
 				if (!(batch[i]->flags & NODE_FLAGS_GROUP))
 				{
 					memcpy(batch[i]->children, batch[i]->chunk->octree.children, sizeof(OctreeNode*) * 8);
 					batch[i]->leaf_flag = false;
-				}
+				}*/
 
 				batch[i]->chunk->polygonize();
+
+				if (iters > 0 && batch[i]->chunk->contains_mesh && batch[i]->chunk->vi->vertices.count && batch[i]->chunk->vi->mesh_indexes.count)
+				{
+					auto& v_out = batch[i]->chunk->vi->vertices;
+					auto& i_out = batch[i]->chunk->vi->mesh_indexes;
+					Processing::MeshProcessor<3> mp(true, SMOOTH_NORMALS);
+					mp.init(batch[i]->chunk->vi->vertices, batch[i]->chunk->vi->mesh_indexes, sampler);
+
+					mp.optimize_dual_grid(iters);
+					mp.optimize_primal_grid(false, false);
+					v_out.count = 0;
+					i_out.count = 0;
+					mp.flush(v_out, i_out);
+				}
 
 				binary_allocator.free_element(batch[i]->chunk->binary_block);
 				batch[i]->chunk->binary_block = 0;
@@ -111,9 +128,13 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 			}
 		}
 
-		batch[i]->format(&gl_allocator);
-
-		batch[i]->generation_stage = GENERATION_STAGES_NEEDS_UPLOAD;
+		if (batch[i]->chunk->vi)
+		{
+			batch[i]->format(&gl_allocator);
+			batch[i]->generation_stage = GENERATION_STAGES_NEEDS_UPLOAD;
+		}
+		else
+			batch[i]->generation_stage = GENERATION_STAGES_DONE;
 	}
 
 
@@ -134,7 +155,7 @@ void ChunkGenerator::extract_samples(SmartContainer<class WorldOctreeNode*>& bat
 		{
 			if (update_still_needed(batch[i]))
 			{
-				batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator);
+				//batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator);
 			}
 		}
 	}
@@ -179,7 +200,7 @@ void ChunkGenerator::extract_dual_vertices(SmartContainer<WorldOctreeNode*>& bat
 		for (int i = 0; i < count; i++)
 		{
 			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
-				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator);
+				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator, &masks_allocator);
 		}
 	}
 

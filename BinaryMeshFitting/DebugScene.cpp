@@ -51,7 +51,8 @@ DebugScene::DebugScene(RenderInput* render_input)
 	this->flat_quads = FLAT_QUADS;
 	this->cull = true;
 	this->gui_visible = true;
-	this->update_focus = false;
+	this->world_visible = true;
+	this->update_focus = true;
 	this->line_width = 1.0f;
 	this->specular_power = SPECULAR_POWER;
 
@@ -248,7 +249,7 @@ void DebugScene::init_dmc_chunk()
 	SmartContainer<DualVertex> v_out(0);
 	SmartContainer<uint32_t> i_out(262144);
 
-	dmc_chunk = new DMCChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler, 1);
+	dmc_chunk = new DMCChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler, 1, 0);
 	double extract_time = dmc_chunk->extract(v_out, i_out, false);
 
 	/*cout << "Processing...";
@@ -316,7 +317,7 @@ int DebugScene::update(RenderInput* input)
 	if (update_focus)
 	{
 		std::unique_lock<std::mutex> l(world.watcher._mutex);
-		world.watcher.focus_pos = camera.v_position + camera.v_velocity * 8.0f;
+		world.watcher.focus_pos = camera.v_position + camera.v_velocity * 16.0f;
 	}
 
 	return 0;
@@ -359,6 +360,9 @@ void DebugScene::render_world()
 		return;
 
 	world.process_from_render_thread();
+
+	if (!world_visible)
+		return;
 
 	if (fillmode == FILL_MODE_FILL || fillmode == FILL_MODE_BOTH)
 	{
@@ -478,6 +482,10 @@ void DebugScene::key_callback(int key, int scancode, int action, int mods)
 		if (key == GLFW_KEY_F4)
 		{
 			cull = !cull;
+		}
+		if (key == GLFW_KEY_F5)
+		{
+			world_visible = !world_visible;
 		}
 
 		if (key == GLFW_KEY_R)
@@ -620,17 +628,17 @@ void DebugScene::render_gui()
 
 	ImGui::Text("Size modifier:");
 	ImGui::NextColumn();
-	ImGui::SliderFloat("##lbl_octree_mod", &world.properties.size_modifier, 0.0f, 8.0f);
+	ImGui::SliderFloat("##lbl_octree_mod", &world.properties.size_modifier, 0.0f, 64.0f);
 	ImGui::NextColumn();
 
 	ImGui::Text("Split mult.:");
 	ImGui::NextColumn();
-	ImGui::SliderFloat("##lbl_octree_split", &world.properties.split_multiplier, 1.0f, 4.0f);
+	ImGui::SliderFloat("##lbl_octree_split", &world.properties.split_multiplier, 1.0f, 8.0f);
 	ImGui::NextColumn();
 
 	ImGui::Text("Group mult.:");
 	ImGui::NextColumn();
-	ImGui::SliderFloat("##lbl_octree_group", &world.properties.group_multiplier, 1.0f, 4.0f);
+	ImGui::SliderFloat("##lbl_octree_group", &world.properties.group_multiplier, 1.0f, 8.0f);
 	ImGui::NextColumn();
 
 	ImGui::Text("Threads:");
@@ -645,7 +653,7 @@ void DebugScene::render_gui()
 
 	ImGui::Text("Processes:");
 	ImGui::NextColumn();
-	ImGui::SliderInt("##lbl_processes", &world.properties.process_iters, 0, 100);
+	ImGui::SliderInt("##lbl_processes", &world.properties.process_iters, 0, 10);
 	ImGui::NextColumn();
 
 	ImGui::Text("Resolution: %i", world.properties.chunk_resolution);

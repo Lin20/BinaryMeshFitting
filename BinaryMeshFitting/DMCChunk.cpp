@@ -37,9 +37,9 @@ DMCChunk::DMCChunk()
 	density_block = 0;
 }
 
-DMCChunk::DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code)
+DMCChunk::DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code, int max_level)
 {
-	init(pos, size, level, sampler, parent_code);
+	init(pos, size, level, sampler, parent_code, max_level);
 }
 
 DMCChunk::~DMCChunk()
@@ -53,7 +53,7 @@ DMCChunk::~DMCChunk()
 	}
 }
 
-void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code)
+void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code, int max_level)
 {
 	this->pos = pos;
 	this->dim = RESOLUTION;
@@ -72,9 +72,10 @@ void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, uint
 	this->binary_block = 0;
 	this->octree.leaf_flag = true;
 	this->parent_code = parent_code;
+	this->max_level = max_level;
 }
 
-void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator)
+void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator, int process_iters)
 {
 	bool positive = false, negative = false;
 
@@ -89,9 +90,11 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 	binary_block = binary_allocator->new_element();
 	binary_block->init(dim * dim * dim, real_count);
 
-	float delta = size / (float)dim;
+	float modifier = (level == max_level && !process_iters ? 0.0f : 0.035f);
+	float delta = size * (1.0f + modifier * 2.0f) / (float)(dim - 1);
 	const float scale = 1.0f;
 	const float res = sampler.world_size;
+	vec3 local_pos = pos - size * modifier;
 	density_block = density_allocator->new_element();
 	density_block->init(dim * dim * dim);
 
@@ -101,7 +104,7 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 	NoiseSamplers::NoiseSamplerProperties properties;
 	properties.level = this->level;
 
-	sampler.block(res, pos + vec3(delta * 0.5f, delta * 0.5f, delta * 0.5f), ivec3(dim, dim, dim), delta * scale, (void**)&density_block->data, &noise_block->vectorset, noise_block->dest_noise, sizeof(uint32_t), sizeof(DMC_Isovertex), 0);
+	sampler.block(res, local_pos/* + vec3(delta * 0.5f, delta * 0.5f, delta * 0.5f)*/, ivec3(dim, dim, dim), delta * scale, (void**)&density_block->data, &noise_block->vectorset, noise_block->dest_noise, sizeof(uint32_t), sizeof(DMC_Isovertex), 0);
 
 	vec3 dxyz;
 	auto f = sampler.value;
@@ -110,10 +113,10 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 	bool mesh = false;
 	for (uint32_t x = 0; x < dim; x++)
 	{
-		float dx = pos.x + (float)x * delta + delta * 0.5f;
+		float dx = local_pos.x + (float)x * delta;
 		for (uint32_t y = 0; y < dim; y++)
 		{
-			float dy = pos.y + (float)y * delta + delta * 0.5f;
+			float dy = local_pos.y + (float)y * delta;
 			for (uint32_t z_block = 0; z_block < z_count; z_block++)
 			{
 				DMC_Isovertex* block_samples = density_block->data + x * y_per_x + y * z_per_y + z_block * 32;
@@ -124,7 +127,7 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 
 				for (uint32_t z = 0; z < z_max; z++)
 				{
-					float dz = pos.z + (float)(z_block * 32 + z) * delta + delta * 0.5f;
+					float dz = local_pos.z + (float)(z_block * 32 + z) * delta;
 					float s = block_samples[z].value;
 					if (s < 0.0f)
 						m |= 1 << z;
@@ -158,7 +161,7 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 	noise_block = 0;
 }
 
-void DMCChunk::label_edges(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<DMC_CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator)
+void DMCChunk::label_edges(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<DMC_CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<MasksBlock>* masks_allocator)
 {
 	if (!contains_mesh)
 		return;
@@ -182,8 +185,11 @@ void DMCChunk::label_edges(ResourceAllocator<VerticesIndicesBlock>* vi_allocator
 	uint32_t y_per_x8 = z_per_y8 * dim;
 	uint32_t count8 = z_per_y8 * y_per_x8 * dim;
 
-	uint64_t* __restrict masks = (uint64_t*)malloc(sizeof(uint64_t) * count8);
+	//uint64_t* __restrict masks = (uint64_t*)malloc(sizeof(uint64_t) * count8);
 	//memset(masks, 0, sizeof(uint64_t) * count8);
+	MasksBlock* masks_block = masks_allocator->new_element();
+	masks_block->init(count8);
+	auto masks = masks_block->data;
 
 	uint32_t* samples = binary_block->data;
 
@@ -489,7 +495,7 @@ void DMCChunk::label_edges(ResourceAllocator<VerticesIndicesBlock>* vi_allocator
 	//vertices.shrink();
 	//cells.shrink();
 
-	free(masks);
+	masks_allocator->free_element(masks_block);
 	//if (USE_DENSITIES)
 	{
 		//density_allocator->free_element(density_block);
@@ -508,6 +514,7 @@ void DMCChunk::polygonize()
 
 	int count = (int)cell_block->cells.count;
 	int dim = (int)this->dim;
+	auto& verts = this->vi->vertices;
 	auto& inds = this->vi->mesh_indexes;
 
 	for (int i = 0; i < count; i++)
@@ -519,11 +526,11 @@ void DMCChunk::polygonize()
 
 		assert(cell.mask != 0 && cell.mask != 255);
 
-		polygonize_cell(cell, cell.edges[0].grid_v0 / dim / dim, cell.edges[0].grid_v0 / dim % dim, cell.edges[0].grid_v0 % dim, dim, inds);
+		polygonize_cell(cell, cell.edges[0].grid_v0 / dim / dim, cell.edges[0].grid_v0 / dim % dim, cell.edges[0].grid_v0 % dim, dim, verts, inds);
 	}
 }
 
-void DMCChunk::polygonize_cell(DMC_Cell& _c, int x, int y, int z, int dim, SmartContainer<uint32_t>& inds)
+void DMCChunk::polygonize_cell(DMC_Cell& _c, int x, int y, int z, int dim, SmartContainer<DualVertex>& verts, SmartContainer<uint32_t>& inds)
 {
 	DMC_ImmediateCell cell;
 	cell.mask = _c.mask;
@@ -558,6 +565,8 @@ void DMCChunk::polygonize_cell(DMC_Cell& _c, int x, int y, int z, int dim, Smart
 		int e = MarchingCubes::tri_table[cell.mask][i];
 		if (e == -1)
 			break;
+		
+		verts[cell.iso_verts[e]].init_valence++;
 		inds.push_back(cell.iso_verts[e]);
 	}
 }
@@ -663,6 +672,10 @@ DualVertex DMCChunk::calculate_dual_vertex(DMC_Isovertex& in)
 	dv.index = in.index;
 	dv.p = in.position;
 	dv.color = vec3(1, 1, 1);
+	dv.init_valence = 0;
+	dv.valence = 0;
+	dv.adj_next = 0;
+	dv.adj_offset = 0;
 
 	return dv;
 }
@@ -770,6 +783,7 @@ double DMCChunk::extract(SmartContainer<DualVertex>& v_out, SmartContainer<uint3
 
 	ResourceAllocator<BinaryBlock> binary_allocator;
 	ResourceAllocator<IsoVertexBlock> isovertex_allocator;
+	ResourceAllocator<MasksBlock> masks_allocator;
 	ResourceAllocator<NoiseBlock> noise_allocator;
 	ResourceAllocator<VerticesIndicesBlock> vi_allocator;
 	ResourceAllocator<DMC_CellsBlock> cell_allocator;
@@ -778,7 +792,7 @@ double DMCChunk::extract(SmartContainer<DualVertex>& v_out, SmartContainer<uint3
 	if (!silent)
 		cout << "-Labeling grid...";
 	clock_t start_clock = clock();
-	label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator);
+	label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator, 0);
 	total_ms += clock() - start_clock;
 	if (!silent)
 		cout << "done (" << (int)(total_ms / (double)CLOCKS_PER_SEC * 1000.0) << "ms)" << endl;
@@ -786,7 +800,7 @@ double DMCChunk::extract(SmartContainer<DualVertex>& v_out, SmartContainer<uint3
 	if (!silent)
 		cout << "-Labeling edges...";
 	start_clock = clock();
-	label_edges(&vi_allocator, &cell_allocator, &indexes_allocator, &isovertex_allocator);
+	label_edges(&vi_allocator, &cell_allocator, &indexes_allocator, &isovertex_allocator, &masks_allocator);
 	double delta = clock() - start_clock;
 	total_ms += delta;
 	if (!silent)

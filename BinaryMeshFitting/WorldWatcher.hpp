@@ -51,9 +51,9 @@ private:
 	void handle_split_check(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out);
 	void handle_group_check(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& batch_out);
 
-	void process_batch(SmartContainer<class WorldOctreeNode*>& batch_in, SmartContainer<class WorldOctreeNode*>& batch_out);
+	void process_batch(SmartContainer<class WorldOctreeNode*>& batch_in, SmartContainer<class WorldOctreeNode*>& batch_out, SmartContainer<class WorldOctreeNode*>& stitch_batch);
 	void post_process_batch(SmartContainer<class WorldOctreeNode*>& batch_in);
-	void split_node(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& generate_batch_out);
+	void split_node(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& generate_batch_out, SmartContainer<class WorldOctreeNode*>& stitch_batch);
 	void group_node_1(class WorldOctreeNode* n, SmartContainer<class WorldOctreeNode*>& generate_batch_out);
 	void process_stitching(SmartContainer<class WorldOctreeNode*>& batch_in);
 

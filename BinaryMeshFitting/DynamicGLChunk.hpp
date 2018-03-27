@@ -13,14 +13,16 @@ struct VertexRegion : public LinkedNode<VertexRegion>
 {
 	uint32_t start;
 	uint32_t count;
+	bool marked_dirty;
 
 	inline VertexRegion()
 	{
 		start = 0;
 		count = 0;
+		marked_dirty = false;
 	}
 
-	inline VertexRegion(uint32_t _start, uint32_t _count) : start(_start), count(_count)
+	inline VertexRegion(uint32_t _start, uint32_t _count) : start(_start), count(_count), marked_dirty(false)
 	{
 	}
 };
@@ -37,12 +39,10 @@ public:
 	GLuint v_vbo;
 	GLuint n_vbo;
 	GLuint c_vbo;
-	GLuint ibo;
 
 	uint32_t v_count;
 	uint32_t p_count;
 	uint32_t vbo_size;
-	uint32_t ibo_size;
 
 	SmartContainer<glm::vec3> p_data;
 	SmartContainer<glm::vec3> n_data;
@@ -53,9 +53,16 @@ public:
 	void init(bool _normals, bool _colors);
 	void destroy();
 
-	
+	VertexRegion* allocate(uint32_t count);
+	void free(VertexRegion* r);
+	void reset(VertexRegion* r, uint32_t offset = 0);
+
+	void upload(VertexRegion* r);
+	void upload_dirty_regions();
 
 	MemoryPool<VertexRegion> region_pool;
 	LinkedList<VertexRegion> used_regions;
 	LinkedList<VertexRegion> free_regions;
+
+	SmartContainer<VertexRegion*> dirty_regions;
 };

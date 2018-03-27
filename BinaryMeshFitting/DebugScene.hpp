@@ -20,6 +20,7 @@ class DebugScene
 	bool smooth_shading;
 	bool flat_quads;
 	bool gui_visible;
+	bool world_visible;
 	bool update_focus;
 	float line_width;
 	float line_color[4];

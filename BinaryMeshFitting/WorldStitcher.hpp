@@ -13,6 +13,7 @@
 #include "WorldOctreeNode.hpp"
 #include "sparsepp/spp.h"
 #include <map>
+#include "DynamicGLChunk.hpp"
 
 typedef enum STITCHING_STAGES
 {
@@ -35,19 +36,25 @@ public:
 	void init();
 	void stitch_all(class WorldOctreeNode* root);
 	void stitch_all(emilib::HashMap<MortonCode, class WorldOctreeNode*>& leaves, spp::sparse_hash_map<MortonCode, DMCNode*>& chunk_nodes);
+	void stitch_all_linear(emilib::HashMap<MortonCode, class WorldOctreeNode*>& chunks);
+
 	void upload();
 	void format();
+
+	void gather_marked_cells(SmartContainer<WorldOctreeNode*>& in_out);
+	void stitch_batch(SmartContainer<WorldOctreeNode*>& batch);
 
 	std::mutex _mutex;
 	std::atomic<int> stage;
 
 	GLChunk gl_chunk;
-	int gl_index;
+	DynamicGLChunk dynamic_chunk;
 
 private:
 	SmartContainer<DualVertex> vertices;
+	SmartContainer<DualVertex> v_containers[8];
 
-	void gather_cells(WorldOctreeNode* n, SmartContainer<WorldOctreeNode*>& out);
+	void gather_all_cells(WorldOctreeNode* n, SmartContainer<WorldOctreeNode*>& out);
 
 	void stitch_cell(class OctreeNode* n, SmartContainer<DualVertex>& v_out, bool allow_children = true);
 
@@ -60,8 +67,6 @@ private:
 	void stitch_edge_z(class OctreeNode* n0, class  OctreeNode* n1, class  OctreeNode* n2, class OctreeNode* n3, SmartContainer<DualVertex>& v_out);
 
 	void stitch_indexes(class OctreeNode* n[8], SmartContainer<DualVertex>& v_out);
-
-	void stitch_face(class OctreeNode* n0, class OctreeNode* n1);
 
 	void mark_chunks(WorldOctreeNode* n, emilib::HashMap<MortonCode, class WorldOctreeNode*>& leaves, SmartContainer<WorldOctreeNode*>& dest);
 	bool stitch_dual_chunk(WorldOctreeNode* n, SmartContainer<DualVertex>& v_out, emilib::HashMap<MortonCode, WorldOctreeNode*>& chunk_nodes);

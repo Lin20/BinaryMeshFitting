@@ -20,7 +20,7 @@
 __declspec(noinline) WorldProperties::WorldProperties()
 {
 	split_multiplier = 1.0f;
-	group_multiplier = split_multiplier * 1.1f;
+	group_multiplier = split_multiplier * 2.0f;
 	size_modifier = 0.0f;
 	max_level = 7;
 	min_level = 1;
@@ -251,7 +251,7 @@ bool WorldOctree::node_needs_group(const glm::vec3& center, WorldOctreeNode* n)
 void WorldOctree::create_chunk(WorldOctreeNode* n)
 {
 	n->chunk = chunk_pool.newElement();
-	n->chunk->init(n->pos, n->size, n->level, sampler, n->morton_code.code);
+	n->chunk->init(n->pos, n->size, n->level, sampler, n->morton_code.code, properties.max_level);
 	n->chunk->dim = properties.chunk_resolution;
 	n->chunk->id = next_chunk_id++;
 }
@@ -319,7 +319,7 @@ void WorldOctree::process_from_render_thread()
 	// Renderables mutex is already locked from the main render loop
 
 	const int MAX_DELETES = 1500;
-	const int MAX_UPLOADS = 400;
+	const int MAX_UPLOADS = 1000;
 
 	int upload_count = 0;
 	WorldOctreeNode* n = watcher.renderables_head;

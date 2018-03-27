@@ -98,6 +98,36 @@ struct NoiseBlock : public LinkedNode<NoiseBlock>
 	}
 };
 
+struct MasksBlock : public LinkedNode<MasksBlock>
+{
+	uint32_t size;
+	uint64_t* data;
+	bool initialized;
+
+	inline MasksBlock()
+	{
+		initialized = false;
+		size = 0;
+		data = 0;
+	}
+
+	inline ~MasksBlock()
+	{
+		_aligned_free(data);
+		size = 0;
+		initialized = false;
+	}
+
+	void init(uint32_t _size)
+	{
+		if (initialized)
+			return;
+		_aligned_free(data);
+		data = (uint64_t*)_aligned_malloc(sizeof(uint64_t) * _size, 16);
+		initialized = true;
+	}
+};
+
 struct VerticesIndicesBlock : public LinkedNode<VerticesIndicesBlock>
 {
 	SmartContainer<DualVertex> vertices;

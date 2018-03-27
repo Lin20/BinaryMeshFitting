@@ -10,6 +10,7 @@
 #include "Vertices.hpp"
 #include "GLChunk.hpp"
 #include "ResourceAllocator.hpp"
+#include "DynamicGLChunk.hpp"
 
 typedef enum NODE_FLAGS
 {
@@ -96,6 +97,10 @@ namespace std
 	};
 }
 
+struct OctreeNodeChildren
+{
+};
+
 struct OctreeNode
 {
 	bool world_node_flag;
@@ -131,7 +136,9 @@ public:
 	bool world_leaf_flag;
 	bool force_chunk_octree;
 	GLChunk* gl_chunk;
-	bool stitch_flag = false;
+	bool stitch_flag;
+	bool stitch_stored_flag;
+	VertexRegion* stitches;
 
 	WorldOctreeNode();
 	WorldOctreeNode(uint32_t _index, WorldOctreeNode* _parent, float _size, glm::vec3 _pos, uint8_t _level);

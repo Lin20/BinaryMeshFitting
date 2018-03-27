@@ -7,6 +7,8 @@
 #include "DMCChunk.hpp"
 #include <omp.h>
 
+#define RESTITCH_ALL true
+
 WorldStitcher::WorldStitcher()
 {
 	stage = STITCHING_STAGES_READY;
@@ -27,12 +29,11 @@ void WorldStitcher::stitch_all(WorldOctreeNode* root)
 		return;
 
 	vertices.count = 0;
-	SmartContainer<DualVertex> v_containers[8];
-
-	clock_t start_clock = clock();
+	for (int i = 0; i < 8; i++)
+		v_containers[i].count = 0;
 
 	SmartContainer<WorldOctreeNode*> cells;
-	gather_cells(root, cells);
+	gather_all_cells(root, cells);
 	int count = (int)cells.count;
 
 #pragma omp parallel for
@@ -45,11 +46,6 @@ void WorldStitcher::stitch_all(WorldOctreeNode* root)
 	{
 		vertices.push_back(v_containers[i]);
 	}
-
-	double chunks_delta = clock() - start_clock;
-
-	using namespace std;
-	cout << "Stitched world in " << (int)(chunks_delta / (double)CLOCKS_PER_SEC * 1000.0) << "ms." << endl;
 }
 
 void WorldStitcher::stitch_all(emilib::HashMap<MortonCode, class WorldOctreeNode*>& sub_leaves, spp::sparse_hash_map<MortonCode, DMCNode*>& chunk_nodes)
@@ -98,6 +94,10 @@ void WorldStitcher::stitch_all(emilib::HashMap<MortonCode, class WorldOctreeNode
 	cout << "done. Generated " << (int)vertices.count / 3 << " tris in " << (int)(delta / (double)CLOCKS_PER_SEC * 1000.0) << "ms (" << skipped_count << " skipped)" << endl;
 }
 
+void WorldStitcher::stitch_all_linear(emilib::HashMap<MortonCode, class WorldOctreeNode*>& chunks)
+{
+}
+
 void WorldStitcher::upload()
 {
 	gl_chunk.set_data(gl_chunk.p_data, gl_chunk.c_data, 0);
@@ -108,7 +108,7 @@ void WorldStitcher::format()
 	gl_chunk.format_data_tris(vertices);
 }
 
-void WorldStitcher::gather_cells(WorldOctreeNode* n, SmartContainer<WorldOctreeNode*>& out)
+void WorldStitcher::gather_all_cells(WorldOctreeNode* n, SmartContainer<WorldOctreeNode*>& out)
 {
 	if (n->world_leaf_flag)
 	{
@@ -116,6 +116,7 @@ void WorldStitcher::gather_cells(WorldOctreeNode* n, SmartContainer<WorldOctreeN
 		return;
 	}
 	bool contains_mesh = false;
+	bool stitch_marked = RESTITCH_ALL;
 	for (int i = 0; i < 8; i++)
 	{
 		assert(n->children[i]);
@@ -123,10 +124,13 @@ void WorldStitcher::gather_cells(WorldOctreeNode* n, SmartContainer<WorldOctreeN
 		if (!w->world_leaf_flag || w->chunk->contains_mesh)
 		{
 			contains_mesh = true;
-			break;
+		}
+		if (!w->world_leaf_flag || w->stitch_flag)
+		{
+			stitch_marked = true;
 		}
 	}
-	if (!contains_mesh)
+	if (!contains_mesh || !stitch_marked)
 		return;
 
 	out.push_back(n);
@@ -135,13 +139,51 @@ void WorldStitcher::gather_cells(WorldOctreeNode* n, SmartContainer<WorldOctreeN
 
 	for (int i = 0; i < 8; i++)
 	{
-		gather_cells((WorldOctreeNode*)n->children[i], out);
+		gather_all_cells((WorldOctreeNode*)n->children[i], out);
+	}
+}
+
+void WorldStitcher::gather_marked_cells(SmartContainer<WorldOctreeNode*>& in_out)
+{
+	for (int i = 0; i < (int)in_out.count; i++)
+	{
+		WorldOctreeNode* w = in_out[i];
+		assert(w);
+		WorldOctreeNode* parent = (WorldOctreeNode*)w->parent;
+		if (parent && !parent->stitch_flag)
+		{
+			parent->stitch_flag = true;
+			parent->stitch_stored_flag = true;
+			in_out.push_back(parent);
+		}
+	}
+}
+
+void WorldStitcher::stitch_batch(SmartContainer<WorldOctreeNode*>& batch)
+{
+	vertices.count = 0;
+	for (int i = 0; i < 8; i++)
+		v_containers[i].count = 0;
+
+	clock_t start_clock = clock();
+
+	int count = (int)batch.count;
+
+#pragma omp parallel for
+	for (int i = 0; i < count; i++)
+	{
+		int thread_id = omp_get_thread_num();
+		stitch_cell(batch[i], v_containers[thread_id]);
+	}
+	for (int i = 0; i < 8; i++)
+	{
+		vertices.push_back(v_containers[i]);
 	}
 }
 
 void WorldStitcher::stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out, bool allow_children)
 {
-	if (n->leaf_flag || !n->world_node_flag)
+	if (n->leaf_flag || !n->world_node_flag || ((WorldOctreeNode*)n)->world_leaf_flag)
 		return;
 
 	/*if (allow_children && n->world_node_flag)
@@ -165,9 +207,13 @@ void WorldStitcher::stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out
 	else
 		memcpy(children, w->chunk->octree.children, sizeof(OctreeNode*) * 8);
 
+	if(children[0] && children[3])
 	stitch_face_xy(children[0], children[3], v_out);
+	if (children[1] && children[2])
 	stitch_face_xy(children[1], children[2], v_out);
+	if (children[4] && children[7])
 	stitch_face_xy(children[4], children[7], v_out);
+	if (children[5] && children[6])
 	stitch_face_xy(children[5], children[6], v_out);
 
 	stitch_face_zy(children[0], children[1], v_out);
@@ -192,12 +238,10 @@ void WorldStitcher::stitch_cell(OctreeNode* n, SmartContainer<DualVertex>& v_out
 	stitch_indexes(children, v_out);
 }
 
-#define CHECK_WORLD(n) (n->world_node_flag && ((WorldOctreeNode*)n)->force_chunk_octree ? ((WorldOctreeNode*)n)->chunk->octree.children : n->children)
+#define CHECK_WORLD(n, ind) (worlds[ind] && ((WorldOctreeNode*)n)->force_chunk_octree ? ((WorldOctreeNode*)n)->chunk->octree.children : n->children)
 
 void WorldStitcher::stitch_face_xy(OctreeNode* n0, OctreeNode* n1, SmartContainer<DualVertex>& v_out)
 {
-	if ((n0 == 0 || n1 == 0))
-		return;
 	if (n0->leaf_flag && n1->leaf_flag)
 	{
 		//stitch_face(n0, n1);
@@ -207,28 +251,40 @@ void WorldStitcher::stitch_face_xy(OctreeNode* n0, OctreeNode* n1, SmartContaine
 	{
 		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
 		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		if (!w0->stitch_flag && !w1->stitch_flag && !RESTITCH_ALL)
+			return;
 		if (w0->world_leaf_flag && w1->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh)
 			return;
 	}
 
-	OctreeNode* c0 = !n0->leaf_flag ? CHECK_WORLD(n0)[3] : n0;
-	OctreeNode* c1 = !n0->leaf_flag ? CHECK_WORLD(n0)[2] : n0;
-	OctreeNode* c2 = !n1->leaf_flag ? CHECK_WORLD(n1)[1] : n1;
-	OctreeNode* c3 = !n1->leaf_flag ? CHECK_WORLD(n1)[0] : n1;
+	bool leaves[2] = { n0->leaf_flag, n1->leaf_flag };
+	bool worlds[2] = { n0->world_node_flag, n1->world_node_flag };
+	OctreeNode* c0 = !leaves[0] ? CHECK_WORLD(n0, 0)[3] : n0;
+	OctreeNode* c1 = !leaves[0] ? CHECK_WORLD(n0, 0)[2] : n0;
+	OctreeNode* c2 = !leaves[1] ? CHECK_WORLD(n1, 1)[1] : n1;
+	OctreeNode* c3 = !leaves[1] ? CHECK_WORLD(n1, 1)[0] : n1;
 
-	OctreeNode* c4 = !n0->leaf_flag ? CHECK_WORLD(n0)[7] : n0;
-	OctreeNode* c5 = !n0->leaf_flag ? CHECK_WORLD(n0)[6] : n0;
-	OctreeNode* c6 = !n1->leaf_flag ? CHECK_WORLD(n1)[5] : n1;
-	OctreeNode* c7 = !n1->leaf_flag ? CHECK_WORLD(n1)[4] : n1;
+	OctreeNode* c4 = !leaves[0] ? CHECK_WORLD(n0, 0)[7] : n0;
+	OctreeNode* c5 = !leaves[0] ? CHECK_WORLD(n0, 0)[6] : n0;
+	OctreeNode* c6 = !leaves[1] ? CHECK_WORLD(n1, 1)[5] : n1;
+	OctreeNode* c7 = !leaves[1] ? CHECK_WORLD(n1, 1)[4] : n1;
 
+	if(c0 && c3)
 	stitch_face_xy(c0, c3, v_out);
+	if (c1 && c2)
 	stitch_face_xy(c1, c2, v_out);
+	if (c4 && c7)
 	stitch_face_xy(c4, c7, v_out);
+	if (c5 && c6)
 	stitch_face_xy(c5, c6, v_out);
 
+	if (c0 && c3 && c7 && c4)
 	stitch_edge_x(c0, c3, c7, c4, v_out);
+	if (c1 && c2 && c6 && c5)
 	stitch_edge_x(c1, c2, c6, c5, v_out);
+	if (c0 && c1 && c2 && c3)
 	stitch_edge_y(c0, c1, c2, c3, v_out);
+	if (c4 && c5 && c6 && c7)
 	stitch_edge_y(c4, c5, c6, c7, v_out);
 
 	OctreeNode* ns[8] = { c0, c1, c2, c3, c4, c5, c6, c7 };
@@ -243,19 +299,23 @@ void WorldStitcher::stitch_face_zy(OctreeNode* n0, OctreeNode* n1, SmartContaine
 	{
 		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
 		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		if (!w0->stitch_flag && !w1->stitch_flag && !RESTITCH_ALL)
+			return;
 		if (w0->world_leaf_flag && w1->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh)
 			return;
 	}
 
-	OctreeNode* c0 = !n0->leaf_flag ? CHECK_WORLD(n0)[1] : n0;
-	OctreeNode* c1 = !n1->leaf_flag ? CHECK_WORLD(n1)[0] : n1;
-	OctreeNode* c2 = !n1->leaf_flag ? CHECK_WORLD(n1)[3] : n1;
-	OctreeNode* c3 = !n0->leaf_flag ? CHECK_WORLD(n0)[2] : n0;
+	bool leaves[2] = { n0->leaf_flag, n1->leaf_flag };
+	bool worlds[2] = { n0->world_node_flag, n1->world_node_flag };
+	OctreeNode* c0 = !leaves[0] ? CHECK_WORLD(n0, 0)[1] : n0;
+	OctreeNode* c1 = !leaves[1] ? CHECK_WORLD(n1, 1)[0] : n1;
+	OctreeNode* c2 = !leaves[1] ? CHECK_WORLD(n1, 1)[3] : n1;
+	OctreeNode* c3 = !leaves[0] ? CHECK_WORLD(n0, 0)[2] : n0;
 
-	OctreeNode* c4 = !n0->leaf_flag ? CHECK_WORLD(n0)[5] : n0;
-	OctreeNode* c5 = !n1->leaf_flag ? CHECK_WORLD(n1)[4] : n1;
-	OctreeNode* c6 = !n1->leaf_flag ? CHECK_WORLD(n1)[7] : n1;
-	OctreeNode* c7 = !n0->leaf_flag ? CHECK_WORLD(n0)[6] : n0;
+	OctreeNode* c4 = !leaves[0] ? CHECK_WORLD(n0, 0)[5] : n0;
+	OctreeNode* c5 = !leaves[1] ? CHECK_WORLD(n1, 1)[4] : n1;
+	OctreeNode* c6 = !leaves[1] ? CHECK_WORLD(n1, 1)[7] : n1;
+	OctreeNode* c7 = !leaves[0] ? CHECK_WORLD(n0, 0)[6] : n0;
 
 	stitch_face_zy(c0, c1, v_out);
 	stitch_face_zy(c3, c2, v_out);
@@ -279,19 +339,23 @@ void WorldStitcher::stitch_face_xz(OctreeNode* n0, OctreeNode* n1, SmartContaine
 	{
 		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
 		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		if (!w0->stitch_flag && !w1->stitch_flag && !RESTITCH_ALL)
+			return;
 		if (w0->world_leaf_flag && w1->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh)
 			return;
 	}
 
-	OctreeNode* c0 = !n1->leaf_flag ? CHECK_WORLD(n1)[4] : n1;
-	OctreeNode* c1 = !n1->leaf_flag ? CHECK_WORLD(n1)[5] : n1;
-	OctreeNode* c2 = !n1->leaf_flag ? CHECK_WORLD(n1)[6] : n1;
-	OctreeNode* c3 = !n1->leaf_flag ? CHECK_WORLD(n1)[7] : n1;
+	bool leaves[2] = { n0->leaf_flag, n1->leaf_flag };
+	bool worlds[2] = { n0->world_node_flag, n1->world_node_flag };
+	OctreeNode* c0 = !leaves[1] ? CHECK_WORLD(n1, 1)[4] : n1;
+	OctreeNode* c1 = !leaves[1] ? CHECK_WORLD(n1, 1)[5] : n1;
+	OctreeNode* c2 = !leaves[1] ? CHECK_WORLD(n1, 1)[6] : n1;
+	OctreeNode* c3 = !leaves[1] ? CHECK_WORLD(n1, 1)[7] : n1;
 
-	OctreeNode* c4 = !n0->leaf_flag ? CHECK_WORLD(n0)[0] : n0;
-	OctreeNode* c5 = !n0->leaf_flag ? CHECK_WORLD(n0)[1] : n0;
-	OctreeNode* c6 = !n0->leaf_flag ? CHECK_WORLD(n0)[2] : n0;
-	OctreeNode* c7 = !n0->leaf_flag ? CHECK_WORLD(n0)[3] : n0;
+	OctreeNode* c4 = !leaves[0] ? CHECK_WORLD(n0, 0)[0] : n0;
+	OctreeNode* c5 = !leaves[0] ? CHECK_WORLD(n0, 0)[1] : n0;
+	OctreeNode* c6 = !leaves[0] ? CHECK_WORLD(n0, 0)[2] : n0;
+	OctreeNode* c7 = !leaves[0] ? CHECK_WORLD(n0, 0)[3] : n0;
 
 	stitch_face_xz(c4, c0, v_out);
 	stitch_face_xz(c5, c1, v_out);
@@ -311,15 +375,28 @@ void WorldStitcher::stitch_edge_x(OctreeNode* n0, OctreeNode* n1, OctreeNode* n2
 {
 	if ((n0 == 0 || n1 == 0 || n2 == 0 || n3 == 0) || (n0->leaf_flag && n1->leaf_flag && n2->leaf_flag && n3->leaf_flag))
 		return;
+	if (n0->world_node_flag && n1->world_node_flag && n2->world_node_flag && n3->world_node_flag)
+	{
+		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
+		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		WorldOctreeNode* w2 = (WorldOctreeNode*)n2;
+		WorldOctreeNode* w3 = (WorldOctreeNode*)n3;
+		if (!w0->stitch_flag && !w1->stitch_flag && !w2->stitch_flag && !w3->stitch_flag && !RESTITCH_ALL)
+			return;
+		if (w0->world_leaf_flag && w1->world_leaf_flag && w2->world_leaf_flag && w3->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh && !w2->chunk->contains_mesh && !w3->chunk->contains_mesh)
+			return;
+	}
 
-	OctreeNode* c0 = !n0->leaf_flag ? CHECK_WORLD(n0)[7] : n0;
-	OctreeNode* c1 = !n0->leaf_flag ? CHECK_WORLD(n0)[6] : n0;
-	OctreeNode* c2 = !n1->leaf_flag ? CHECK_WORLD(n1)[5] : n1;
-	OctreeNode* c3 = !n1->leaf_flag ? CHECK_WORLD(n1)[4] : n1;
-	OctreeNode* c4 = !n3->leaf_flag ? CHECK_WORLD(n3)[3] : n3;
-	OctreeNode* c5 = !n3->leaf_flag ? CHECK_WORLD(n3)[2] : n3;
-	OctreeNode* c6 = !n2->leaf_flag ? CHECK_WORLD(n2)[1] : n2;
-	OctreeNode* c7 = !n2->leaf_flag ? CHECK_WORLD(n2)[0] : n2;
+	bool leaves[4] = { n0->leaf_flag, n1->leaf_flag, n2->leaf_flag, n3->leaf_flag };
+	bool worlds[4] = { n0->world_node_flag, n1->world_node_flag, n2->world_node_flag, n3->world_node_flag };
+	OctreeNode* c0 = !leaves[0] ? CHECK_WORLD(n0, 0)[7] : n0;
+	OctreeNode* c1 = !leaves[0] ? CHECK_WORLD(n0, 0)[6] : n0;
+	OctreeNode* c2 = !leaves[1] ? CHECK_WORLD(n1, 1)[5] : n1;
+	OctreeNode* c3 = !leaves[1] ? CHECK_WORLD(n1, 1)[4] : n1;
+	OctreeNode* c4 = !leaves[3] ? CHECK_WORLD(n3, 3)[3] : n3;
+	OctreeNode* c5 = !leaves[3] ? CHECK_WORLD(n3, 3)[2] : n3;
+	OctreeNode* c6 = !leaves[2] ? CHECK_WORLD(n2, 2)[1] : n2;
+	OctreeNode* c7 = !leaves[2] ? CHECK_WORLD(n2, 2)[0] : n2;
 
 	stitch_edge_x(c0, c3, c7, c4, v_out);
 	stitch_edge_x(c1, c2, c6, c5, v_out);
@@ -332,15 +409,28 @@ void WorldStitcher::stitch_edge_y(OctreeNode* n0, OctreeNode* n1, OctreeNode* n2
 {
 	if ((n0 == 0 || n1 == 0 || n2 == 0 || n3 == 0) || (n0->leaf_flag && n1->leaf_flag && n2->leaf_flag && n3->leaf_flag))
 		return;
+	if (n0->world_node_flag && n1->world_node_flag && n2->world_node_flag && n3->world_node_flag)
+	{
+		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
+		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		WorldOctreeNode* w2 = (WorldOctreeNode*)n2;
+		WorldOctreeNode* w3 = (WorldOctreeNode*)n3;
+		if (!w0->stitch_flag && !w1->stitch_flag && !w2->stitch_flag && !w3->stitch_flag && !RESTITCH_ALL)
+			return;
+		if (w0->world_leaf_flag && w1->world_leaf_flag && w2->world_leaf_flag && w3->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh && !w2->chunk->contains_mesh && !w3->chunk->contains_mesh)
+			return;
+	}
 
-	OctreeNode* c0 = !n0->leaf_flag ? CHECK_WORLD(n0)[2] : n0;
-	OctreeNode* c1 = !n1->leaf_flag ? CHECK_WORLD(n1)[3] : n1;
-	OctreeNode* c2 = !n2->leaf_flag ? CHECK_WORLD(n2)[0] : n2;
-	OctreeNode* c3 = !n3->leaf_flag ? CHECK_WORLD(n3)[1] : n3;
-	OctreeNode* c4 = !n0->leaf_flag ? CHECK_WORLD(n0)[6] : n0;
-	OctreeNode* c5 = !n1->leaf_flag ? CHECK_WORLD(n1)[7] : n1;
-	OctreeNode* c6 = !n2->leaf_flag ? CHECK_WORLD(n2)[4] : n2;
-	OctreeNode* c7 = !n3->leaf_flag ? CHECK_WORLD(n3)[5] : n3;
+	bool leaves[4] = { n0->leaf_flag, n1->leaf_flag, n2->leaf_flag, n3->leaf_flag };
+	bool worlds[4] = { n0->world_node_flag, n1->world_node_flag, n2->world_node_flag, n3->world_node_flag };
+	OctreeNode* c0 = !leaves[0] ? CHECK_WORLD(n0, 0)[2] : n0;
+	OctreeNode* c1 = !leaves[1] ? CHECK_WORLD(n1, 1)[3] : n1;
+	OctreeNode* c2 = !leaves[2] ? CHECK_WORLD(n2, 2)[0] : n2;
+	OctreeNode* c3 = !leaves[3] ? CHECK_WORLD(n3, 3)[1] : n3;
+	OctreeNode* c4 = !leaves[0] ? CHECK_WORLD(n0, 0)[6] : n0;
+	OctreeNode* c5 = !leaves[1] ? CHECK_WORLD(n1, 1)[7] : n1;
+	OctreeNode* c6 = !leaves[2] ? CHECK_WORLD(n2, 2)[4] : n2;
+	OctreeNode* c7 = !leaves[3] ? CHECK_WORLD(n3, 3)[5] : n3;
 
 	stitch_edge_y(c0, c1, c2, c3, v_out);
 	stitch_edge_y(c4, c5, c6, c7, v_out);
@@ -353,15 +443,28 @@ void WorldStitcher::stitch_edge_z(OctreeNode* n0, OctreeNode* n1, OctreeNode* n2
 {
 	if ((n0 == 0 || n1 == 0 || n2 == 0 || n3 == 0) || (n0->leaf_flag && n1->leaf_flag && n2->leaf_flag && n3->leaf_flag))
 		return;
+	if (n0->world_node_flag && n1->world_node_flag && n2->world_node_flag && n3->world_node_flag)
+	{
+		WorldOctreeNode* w0 = (WorldOctreeNode*)n0;
+		WorldOctreeNode* w1 = (WorldOctreeNode*)n1;
+		WorldOctreeNode* w2 = (WorldOctreeNode*)n2;
+		WorldOctreeNode* w3 = (WorldOctreeNode*)n3;
+		if (!w0->stitch_flag && !w1->stitch_flag && !w2->stitch_flag && !w3->stitch_flag && !RESTITCH_ALL)
+			return;
+		if (w0->world_leaf_flag && w1->world_leaf_flag && w2->world_leaf_flag && w3->world_leaf_flag && !w0->chunk->contains_mesh && !w1->chunk->contains_mesh && !w2->chunk->contains_mesh && !w3->chunk->contains_mesh)
+			return;
+	}
 
-	OctreeNode* c0 = !n3->leaf_flag ? CHECK_WORLD(n3)[5] : n3;
-	OctreeNode* c1 = !n2->leaf_flag ? CHECK_WORLD(n2)[4] : n2;
-	OctreeNode* c2 = !n2->leaf_flag ? CHECK_WORLD(n2)[7] : n2;
-	OctreeNode* c3 = !n3->leaf_flag ? CHECK_WORLD(n3)[6] : n3;
-	OctreeNode* c4 = !n0->leaf_flag ? CHECK_WORLD(n0)[1] : n0;
-	OctreeNode* c5 = !n1->leaf_flag ? CHECK_WORLD(n1)[0] : n1;
-	OctreeNode* c6 = !n1->leaf_flag ? CHECK_WORLD(n1)[3] : n1;
-	OctreeNode* c7 = !n0->leaf_flag ? CHECK_WORLD(n0)[2] : n0;
+	bool leaves[4] = { n0->leaf_flag, n1->leaf_flag, n2->leaf_flag, n3->leaf_flag };
+	bool worlds[4] = { n0->world_node_flag, n1->world_node_flag, n2->world_node_flag, n3->world_node_flag };
+	OctreeNode* c0 = !leaves[3] ? CHECK_WORLD(n3, 3)[5] : n3;
+	OctreeNode* c1 = !leaves[2] ? CHECK_WORLD(n2, 2)[4] : n2;
+	OctreeNode* c2 = !leaves[2] ? CHECK_WORLD(n2, 2)[7] : n2;
+	OctreeNode* c3 = !leaves[3] ? CHECK_WORLD(n3, 3)[6] : n3;
+	OctreeNode* c4 = !leaves[0] ? CHECK_WORLD(n0, 0)[1] : n0;
+	OctreeNode* c5 = !leaves[1] ? CHECK_WORLD(n1, 1)[0] : n1;
+	OctreeNode* c6 = !leaves[1] ? CHECK_WORLD(n1, 1)[3] : n1;
+	OctreeNode* c7 = !leaves[0] ? CHECK_WORLD(n0, 0)[2] : n0;
 
 	stitch_edge_z(c7, c6, c2, c3, v_out);
 	stitch_edge_z(c4, c5, c1, c0, v_out);
@@ -382,30 +485,38 @@ if (edge_mask & (1 << i)) { \
 	crossings[i].p = _get_intersection(pos[v0], pos[v1], samples[v0], samples[v1], 0.0f); \
 	crossings[i].color = glm::vec3(0.85f, 1.0f, 0.85f); }
 
+#define INDS_LEAF(n, ind) \
+(n->world_node_flag && ((WorldOctreeNode*)n)->force_chunk_octree ? ((WorldOctreeNode*)n)->chunk->octree.children : n->children)
+
 void WorldStitcher::stitch_indexes(OctreeNode* nodes[8], SmartContainer<DualVertex>& v_out)
 {
-Start:
 	for (int i = 0; i < 8; i++)
 	{
-		if (nodes[i] == 0 || (nodes[i]->leaf_flag && nodes[i]->world_node_flag))
+		if (!nodes[i])
 			return;
 	}
 
+	while(nodes[0] && !nodes[0]->leaf_flag)
+		nodes[0] = !nodes[0]->leaf_flag ? INDS_LEAF(nodes[0], 0)[6] : nodes[0];
+	while (nodes[1] && !nodes[1]->leaf_flag)
+		nodes[1] = !nodes[1]->leaf_flag ? INDS_LEAF(nodes[1], 1)[7] : nodes[1];
+	while (nodes[2] && !nodes[2]->leaf_flag)
+		nodes[2] = !nodes[2]->leaf_flag ? INDS_LEAF(nodes[2], 2)[4] : nodes[2];
+	while (nodes[3] && !nodes[3]->leaf_flag)
+		nodes[3] = !nodes[3]->leaf_flag ? INDS_LEAF(nodes[3], 3)[5] : nodes[3];
+	while (nodes[4] && !nodes[4]->leaf_flag)
+		nodes[4] = !nodes[4]->leaf_flag ? INDS_LEAF(nodes[4], 4)[2] : nodes[4];
+	while (nodes[5] && !nodes[5]->leaf_flag)
+		nodes[5] = !nodes[5]->leaf_flag ? INDS_LEAF(nodes[5], 5)[3] : nodes[5];
+	while (nodes[6] && !nodes[6]->leaf_flag)
+		nodes[6] = !nodes[6]->leaf_flag ? INDS_LEAF(nodes[6], 6)[0] : nodes[6];
+	while (nodes[7] && !nodes[7]->leaf_flag)
+		nodes[7] = !nodes[7]->leaf_flag ? INDS_LEAF(nodes[7], 7)[1] : nodes[7];
+
 	for (int i = 0; i < 8; i++)
 	{
-		if (!nodes[i]->leaf_flag)
-		{
-			nodes[0] = !nodes[0]->leaf_flag ? CHECK_WORLD(nodes[0])[6] : nodes[0];
-			nodes[1] = !nodes[1]->leaf_flag ? CHECK_WORLD(nodes[1])[7] : nodes[1];
-			nodes[2] = !nodes[2]->leaf_flag ? CHECK_WORLD(nodes[2])[4] : nodes[2];
-			nodes[3] = !nodes[3]->leaf_flag ? CHECK_WORLD(nodes[3])[5] : nodes[3];
-			nodes[4] = !nodes[4]->leaf_flag ? CHECK_WORLD(nodes[4])[2] : nodes[4];
-			nodes[5] = !nodes[5]->leaf_flag ? CHECK_WORLD(nodes[5])[3] : nodes[5];
-			nodes[6] = !nodes[6]->leaf_flag ? CHECK_WORLD(nodes[6])[0] : nodes[6];
-			nodes[7] = !nodes[7]->leaf_flag ? CHECK_WORLD(nodes[7])[1] : nodes[7];
-
-			goto Start;
-		}
+		if (!nodes[i])
+			return;
 	}
 
 	OctreeNode* new_nodes[8] = { nodes[0], nodes[3], nodes[4], nodes[7], nodes[1], nodes[2], nodes[5], nodes[6] };
@@ -417,7 +528,8 @@ Start:
 	for (int i = 0; i < 8; i++)
 	{
 		float size = new_nodes[i]->size * 0.5f;
-		pos[i] = new_nodes[i]->pos + vec3(size);
+		//float delta = new_nodes[i]->size / (float)(31);
+		pos[i] = new_nodes[i]->pos;// +vec3(size);
 		samples[i] = ((DMCNode*)new_nodes[i])->sample;
 		if (samples[i] < 0.0f)
 			mask |= 1 << i;
@@ -457,11 +569,6 @@ Start:
 		v_out.push_back(crossings[e1]);
 		v_out.push_back(crossings[e2]);
 	}
-}
-
-void WorldStitcher::stitch_face(OctreeNode * n0, OctreeNode * n1)
-{
-	printf("F");
 }
 
 void WorldStitcher::mark_chunks(WorldOctreeNode* n, emilib::HashMap<MortonCode, class WorldOctreeNode*>& leaves, SmartContainer<WorldOctreeNode*>& dest)

@@ -16,6 +16,8 @@ WorldOctreeNode::WorldOctreeNode() : OctreeNode()
 	renderable_next = 0;
 	gl_chunk = 0;
 	stitch_flag = false;
+	stitch_stored_flag = false;
+	stitches = 0;
 }
 
 WorldOctreeNode::WorldOctreeNode(uint32_t _index, WorldOctreeNode* _parent, float _size, glm::vec3 _pos, uint8_t _level) : OctreeNode(_index, _parent, _size, _pos, _level)
@@ -32,6 +34,8 @@ WorldOctreeNode::WorldOctreeNode(uint32_t _index, WorldOctreeNode* _parent, floa
 	gl_chunk = 0;
 	force_chunk_octree = false;
 	stitch_flag = false;
+	stitch_stored_flag = false;
+	stitches = 0;
 }
 
 WorldOctreeNode::WorldOctreeNode(uint32_t _index) : WorldOctreeNode()
@@ -41,6 +45,8 @@ WorldOctreeNode::WorldOctreeNode(uint32_t _index) : WorldOctreeNode()
 	gl_chunk = 0;
 	force_chunk_octree = false;
 	stitch_flag = false;
+	stitch_stored_flag = false;
+	stitches = 0;
 }
 
 WorldOctreeNode::~WorldOctreeNode()
@@ -55,6 +61,7 @@ void WorldOctreeNode::init(uint32_t _index, WorldOctreeNode* _parent, float _siz
 	leaf_flag = true;
 	world_leaf_flag = true;
 	stitch_flag = false;
+	stitch_stored_flag = false;
 	flags = 0;
 }
 
