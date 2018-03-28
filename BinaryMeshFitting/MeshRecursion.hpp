@@ -79,12 +79,15 @@ struct set_adj
 	uint32_t* inds;
 	DualVertex* verts;
 	uint32_t p_index;
+	bool* boundary;
 
-	inline set_adj(SmartContainer<uint32_t>* adj_block, uint32_t* p_inds, DualVertex* vertices, uint32_t prim_index) : adj(adj_block), inds(p_inds), verts(vertices), p_index(prim_index) {}
+	inline set_adj(SmartContainer<uint32_t>* adj_block, uint32_t* p_inds, DualVertex* vertices, uint32_t prim_index, bool* _boundary) : adj(adj_block), inds(p_inds), verts(vertices), p_index(prim_index), boundary(_boundary) {}
 
 	__forceinline void operator()()
 	{
 		(*adj)[verts[*inds].adj_offset + verts[*inds].adj_next++] = p_index;
+		if (verts[*inds].boundary)
+			*boundary = true;
 		inds++;
 	}
 };

@@ -25,7 +25,7 @@ void FPSCamera::init(uint32_t width, uint32_t height, RenderInput* render_input)
 
 	this->camera_quat = glm::quat(v_rot);
 	this->mat_rotation = yawPitchRoll(v_rot.x, v_rot.y, v_rot.z);
-	this->mat_projection = perspective(PI / 3.0f, (float)width / (float)height, 0.0001f, 10000.0f);
+	this->mat_projection = perspective(PI / 3.0f, (float)width / (float)height, 0.001f, 1000.0f);
 	
 	glfwSetCursorPos(render_input->window, render_input->width * 0.5, render_input->height * 0.5);
 	glfwGetCursorPos(render_input->window, &this->last_x, &this->last_y);
@@ -110,9 +110,10 @@ void FPSCamera::update(RenderInput* render_input)
 	mat_rotation = yawPitchRoll(v_rot.x, v_rot.y, v_rot.z);
 	target = mat_rotation * vec4(0, 0, 1, 1);
 	up = mat_rotation * vec4(0, 1, 0, 1);
-	target += v_position;
+	mat_view = lookAt(vec3(0, 0, 0), target, up);
 
-	mat_view = lookAt(v_position, target, up);
+	target += v_position;
+	mat_view_frustum = lookAt(v_position, target, up);
 }
 
 void FPSCamera::set_shader(GLint shader_proj, GLint shader_view)

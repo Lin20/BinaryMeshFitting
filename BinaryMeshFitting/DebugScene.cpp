@@ -9,6 +9,9 @@
 #include <time.h>
 #include <iostream>
 #include <omp.h>
+#include <glm/ext.hpp>
+#include <fstream>
+#include <streambuf>
 
 #include "GUI/imgui.h"
 #include "GUI/imgui_impl_glfw_gl3.h"
@@ -75,105 +78,15 @@ DebugScene::DebugScene(RenderInput* render_input)
 	float dy[] = { 0, 0, 1, 1, 0, 0, 1, 1 };
 	float dz[] = { 0, 0, 0, 0, 1, 1, 1, 1 };
 
-	const char* vertex_shader =
-		"#version 400 core\n"
-		"attribute vec3 vertex_position;\n"
-		"attribute vec3 vertex_normal;\n"
-		"attribute vec3 vertex_color;\n"
-		"uniform mat4 projection;\n"
-		"uniform mat4 view;\n"
-		"uniform vec3 mul_color;\n"
-		"uniform float smooth_shading;\n"
-		"uniform float specular_power;\n"
-		"out vec3 f_normal;\n"
-		"out vec3 f_color;\n"
-		"out vec3 f_mul_color;\n"
-		"out vec3 f_ec_pos;\n"
-		"out float f_smooth_shading;\n"
-		"out float f_specular_power;\n"
-		"out float log_z;"
-		"void main() {\n"
-		"  f_normal = normalize(vertex_normal);\n"
-		"  f_color = vertex_normal;\n"
-		"  f_mul_color = mul_color;\n"
-		"  f_smooth_shading = smooth_shading;\n"
-		"  f_specular_power = specular_power;\n"
-		"  f_ec_pos = vertex_position;\n"
-		"  const float near = 0.00001;"
-		"  const float far = 10000.0;"
-		"  const float C = 0.001;"
-		"  gl_Position = projection * view * vec4(vertex_position, 1);\n"
-		"  const float FC = 1.0f / log(far * C + 1.0);"
-		"  log_z = log(gl_Position.w * C + 1.0) * FC;"
-		"  gl_Position.z = (2.0 * log_z - 1.0) * gl_Position.w;"
-		"}";
-
-	const char* fragment_shader =
-		"#version 400 core\n"
-		"in vec3 f_normal;\n"
-		"in vec3 f_color;\n"
-		"in vec3 f_mul_color;\n"
-		"in vec3 f_ec_pos;\n"
-		"in float f_smooth_shading;\n"
-		"in float f_specular_power;\n"
-		"in float log_z;\n"
-		"out vec4 frag_color;\n"
-		"void main() {"
-		"  vec3 normal;\n"
-		"  if (f_smooth_shading != 0.0)"
-		"    normal = f_normal;\n"
-		"  else"
-		"    normal = normalize(cross(dFdx(f_ec_pos), dFdy(f_ec_pos)));\n"
-		"  float d = dot(normalize(-vec3(0.1, -1.0, 0.5)), normal);\n"
-		"  float m = mix(0.2, 1.0, d * 0.5 + 0.5);\n"
-		"  float s = (f_specular_power > 0.0 ? pow(max(0.0, d), f_specular_power) : 0.0);\n"
-		"  vec3 color = vec3(0.3, 0.3, 0.5);\n"
-		"  vec3 color2 = vec3(0.1, 0.1, 0.25);\n"
-		"  vec3 result = f_color * m + f_color * s;\n"
-		"  frag_color = vec4(result, 1.0);\n"
-		"  gl_FragDepth = log_z;"
-		"}";
-
-	const char* outline_vs =
-		"#version 400 core\n"
-		"attribute vec3 vertex_position;\n"
-		"uniform mat4 projection;\n"
-		"uniform mat4 view;\n"
-		"uniform vec3 mul_color;\n"
-		"out vec3 f_mul_color;\n"
-		"out float log_z;"
-		"void main() {\n"
-		"  f_mul_color = mul_color;\n"
-		"  gl_Position = projection * view * vec4(vertex_position, 1);\n"
-		"  const float near = 0.00001;"
-		"  const float far = 10000.0;"
-		"  const float C = 0.001;"
-		"  const float FC = 1.0 / log(far * C + 1.0);"
-		"  log_z = log(gl_Position.w * C + 1.0) * FC;"
-		"  gl_Position.z = (2.0 * log_z - 1.0) * gl_Position.w;"
-		"}";
-
-	const char* outline_fs =
-		"#version 400 core\n"
-		"in vec3 f_mul_color;\n"
-		"in float log_z;\n"
-		"out vec4 frag_color;\n"
-		"void main() {\n"
-		"  frag_color = vec4(f_mul_color, 1.0);\n"
-		"  gl_FragDepth = log_z - 0.00001;"
-		"}";
 
 	GLint success;
 	GLint log_size = 0;
-	this->vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(this->vertex_shader, 1, &vertex_shader, NULL);
-	glCompileShader(this->vertex_shader);
-	SHADER_ERROR_CHECK(this->vertex_shader, "regular vertex shader");
 
-	this->fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(this->fragment_shader, 1, &fragment_shader, NULL);
-	glCompileShader(this->fragment_shader);
-	SHADER_ERROR_CHECK(this->fragment_shader, "regular fragment shader");
+	create_shader_from_file("main_vs.glsl", &vertex_shader, GL_VERTEX_SHADER, "regular vs");
+	create_shader_from_file("main_fs.glsl", &fragment_shader, GL_FRAGMENT_SHADER, "regular fs");
+
+	create_shader_from_file("outline_vs.glsl", &outline_vs, GL_VERTEX_SHADER, "outline vs");
+	create_shader_from_file("outline_fs.glsl", &outline_fs, GL_FRAGMENT_SHADER, "outline fs");
 
 	this->shader_program = glCreateProgram();
 	glAttachShader(this->shader_program, this->fragment_shader);
@@ -190,15 +103,8 @@ DebugScene::DebugScene(RenderInput* render_input)
 	this->shader_eye_pos = glGetUniformLocation(this->shader_program, "eye_pos");
 	this->shader_smooth_shading = glGetUniformLocation(this->shader_program, "smooth_shading");
 	this->shader_specular_power = glGetUniformLocation(this->shader_program, "specular_power");
-
-	this->outline_vs = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(this->outline_vs, 1, &outline_vs, NULL);
-	glCompileShader(this->outline_vs);
-	SHADER_ERROR_CHECK(this->outline_vs, "outline vertex shader");
-	this->outline_fs = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(this->outline_fs, 1, &outline_fs, NULL);
-	glCompileShader(this->outline_fs);
-	SHADER_ERROR_CHECK(this->outline_fs, "outline fragment shader");
+	this->shader_camera_pos = glGetUniformLocation(this->shader_program, "camera_pos");
+	this->shader_chunk_pos = glGetUniformLocation(this->shader_program, "chunk_pos");
 
 	this->outline_sp = glCreateProgram();
 	glAttachShader(this->outline_sp, this->outline_fs);
@@ -211,6 +117,8 @@ DebugScene::DebugScene(RenderInput* render_input)
 	this->outline_shader_projection = glGetUniformLocation(this->outline_sp, "projection");
 	this->outline_shader_view = glGetUniformLocation(this->outline_sp, "view");
 	this->outline_shader_mul_clr = glGetUniformLocation(this->outline_sp, "mul_color");
+	this->outline_shader_camera_pos = glGetUniformLocation(this->outline_sp, "camera_pos");
+	this->outline_shader_chunk_pos = glGetUniformLocation(this->outline_sp, "chunk_pos");
 
 	this->camera.init(render_input->width, render_input->height, render_input);
 	this->camera.set_shader(this->shader_projection, this->shader_view);
@@ -235,6 +143,49 @@ DebugScene::~DebugScene()
 	ImGui_ImplGlfwGL3_Shutdown();
 }
 
+bool DebugScene::create_shader(std::string data, GLuint* out, GLenum type, const char* name)
+{
+	std::cout << "Compiling " << name << "...";
+	if (!out || data.size() == 0)
+	{
+		std::cout << "Failed because empty." << std::endl;
+		return false;
+	}
+
+	GLint success;
+	GLint log_size = 0;
+	const char* str = data.c_str();
+	*out = glCreateShader(type);
+	glShaderSource(*out, 1, &str, NULL);
+	glCompileShader(*out);
+	SHADER_ERROR_CHECK(*out, name);
+
+	if (success != GL_FALSE)
+		std::cout << "Success." << std::endl;
+
+	return success != GL_FALSE;
+}
+
+bool DebugScene::create_shader_from_file(std::string filename, GLuint* out, GLenum type, const char* name)
+{
+	std::string paths[3] = { "C:/shaders/", "./shaders/", "../../BinaryMeshFitting/shaders/" };
+	std::ifstream t(filename);
+	if (t.fail())
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			std::string local_filename = std::string(paths[i]);
+			local_filename.append(filename);
+			t = std::ifstream(local_filename);
+			if (!t.fail())
+				break;
+		}
+	}
+
+	std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+	return create_shader(str, out, type, name);
+}
+
 void DebugScene::init_dmc_chunk()
 {
 	using namespace std;
@@ -249,7 +200,7 @@ void DebugScene::init_dmc_chunk()
 	SmartContainer<DualVertex> v_out(0);
 	SmartContainer<uint32_t> i_out(262144);
 
-	dmc_chunk = new DMCChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler, 1, 0);
+	dmc_chunk = new DMCChunk(vec3(-test_size, -test_size, -test_size) * 0.5f, (float)test_size, 0, sampler, 1);
 	double extract_time = dmc_chunk->extract(v_out, i_out, false);
 
 	/*cout << "Processing...";
@@ -331,6 +282,7 @@ int DebugScene::render(RenderInput* input)
 
 	glUseProgram(shader_program);
 	camera.set_shader(shader_projection, shader_view);
+	glUniform3f(shader_camera_pos, camera.v_position[0], camera.v_position[1], camera.v_position[2]);
 
 	render_world();
 	//render_single_chunk();
@@ -364,6 +316,8 @@ void DebugScene::render_world()
 	if (!world_visible)
 		return;
 
+	frustum.CalculateFrustum(value_ptr(camera.mat_projection), value_ptr(camera.mat_view_frustum));
+
 	if (fillmode == FILL_MODE_FILL || fillmode == FILL_MODE_BOTH)
 	{
 		//glEnable(GL_POLYGON_OFFSET_FILL);
@@ -384,8 +338,9 @@ void DebugScene::render_world()
 			int flags = n->flags;
 			if (flags & NODE_FLAGS_DRAW)
 			{
-				if (n->gl_chunk && n->gl_chunk->p_count != 0)
+				if (n->gl_chunk && n->gl_chunk->p_count != 0 && frustum.CubeInFrustum(n->chunk->bound_start.x, n->chunk->bound_start.y, n->chunk->bound_start.z, n->chunk->bound_size))
 				{
+					glUniform3f(shader_chunk_pos, n->chunk->overlap_pos.x, n->chunk->overlap_pos.y, n->chunk->overlap_pos.z);
 					glBindVertexArray(n->gl_chunk->vao);
 					if (!flat_quads || !QUADS)
 						glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), n->gl_chunk->p_count, GL_UNSIGNED_INT, 0);
@@ -408,6 +363,8 @@ void DebugScene::render_world()
 	{
 		glUseProgram(outline_sp);
 		camera.set_shader(outline_shader_projection, outline_shader_view);
+		glUniform3f(outline_shader_camera_pos, camera.v_position[0], camera.v_position[1], camera.v_position[2]);
+
 		glLineWidth(line_width);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		glCullFace(GL_FRONT);
@@ -424,8 +381,9 @@ void DebugScene::render_world()
 			int flags = n->flags;
 			if (flags & NODE_FLAGS_DRAW)
 			{
-				if (n->gl_chunk && n->gl_chunk->p_count != 0)
+				if (n->gl_chunk && n->gl_chunk->p_count != 0 && frustum.CubeInFrustum(n->chunk->bound_start.x, n->chunk->bound_start.y, n->chunk->bound_start.z, n->chunk->bound_size))
 				{
+					glUniform3f(outline_shader_chunk_pos, n->chunk->overlap_pos.x, n->chunk->overlap_pos.y, n->chunk->overlap_pos.z);
 					glBindVertexArray(n->gl_chunk->vao);
 					if (!flat_quads || !QUADS)
 						glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), n->gl_chunk->p_count, GL_UNSIGNED_INT, 0);
@@ -663,12 +621,18 @@ void DebugScene::render_gui()
 	world.properties.chunk_resolution = (int)pow(2.0f, (float)(mul + 4));
 	ImGui::NextColumn();
 
+	ImGui::Text("Overlap:");
+	ImGui::NextColumn();
+	ImGui::SliderFloat("##lbl_overlap", &world.properties.overlap, 0.0f, 0.05f);
+	ImGui::NextColumn();
+
 
 	ImGui::Separator();
 
 	ImGui::Columns(1);
-	ImGui::Checkbox("Quads", &quads);
-	ImGui::Checkbox("Flat quads", &flat_quads);
+	ImGui::Checkbox("Boundary Processing", &world.properties.boundary_processing);
+	//ImGui::Checkbox("Quads", &quads);
+	//ImGui::Checkbox("Flat quads", &flat_quads);
 	ImGui::Checkbox("Smooth shading", &smooth_shading);
 	ImGui::Checkbox("Stitching", &world.properties.enable_stitching);
 	ImGui::Checkbox("Update focus point", &update_focus);

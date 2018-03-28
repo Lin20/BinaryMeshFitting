@@ -28,6 +28,7 @@ public:
 
 	glm::mat4 mat_projection;
 	glm::mat4 mat_view;
+	glm::mat4 mat_view_frustum;
 	glm::mat4 mat_rotation;
 	glm::quat camera_quat;
 

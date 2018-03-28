@@ -157,6 +157,7 @@
     <ClCompile Include="DynamicGLChunk.cpp" />
     <ClCompile Include="Entry.cpp" />
     <ClCompile Include="FPSCamera.cpp" />
+    <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="GLChunk.cpp" />
     <ClCompile Include="GUI\imgui.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -192,6 +193,7 @@
     <ClInclude Include="DefaultOptions.h" />
     <ClInclude Include="DMCChunk.hpp" />
     <ClInclude Include="DynamicGLChunk.hpp" />
+    <ClInclude Include="Frustum.hpp" />
     <ClInclude Include="HashMap.hpp" />
     <ClInclude Include="MCTable.h" />
     <ClInclude Include="ResourceAllocator.hpp" />
@@ -245,6 +247,22 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="MemoryPool.tcc" />
+    <None Include="shaders\main_fs.glsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="shaders\main_vs.glsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="shaders\outline_fs.glsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="shaders\outline_vs.glsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -121,14 +121,14 @@ void Processing::MeshProcessor<N>::init_primitives(SmartContainer<uint32_t>& ind
 		//adj_block[vs[0]->adj_offset + vs[0]->adj_next++] = i;
 		//adj_block[vs[1]->adj_offset + vs[1]->adj_next++] = i;
 		//adj_block[vs[2]->adj_offset + vs[2]->adj_next++] = i;
-		set_adj adj_op(&adj_block, t.v, vertices.elements, i);
+		set_adj adj_op(&adj_block, t.v, vertices.elements, i, &t.boundary);
 		recursive_unroll<set_adj, N>::result(adj_op);
 		adj_block.count += N;
 	}
 }
 
 template <int N>
-void Processing::MeshProcessor<N>::optimize_dual_grid(int iterations)
+void Processing::MeshProcessor<N>::optimize_dual_grid(int iterations, bool process_boundary)
 {
 	float total_weight = 1.0f;
 	const int set_colors = 3;
@@ -228,7 +228,7 @@ void Processing::MeshProcessor<N>::optimize_dual_grid(int iterations)
 
 		if (m < iterations - 1)
 		{
-			optimize_primal_grid(false, (m == set_colors) || (m == 0 && iterations <= set_colors));
+			optimize_primal_grid(false, (m == set_colors) || (m == 0 && iterations <= set_colors), process_boundary);
 		}
 
 		total_weight *= 0.0f;
@@ -236,7 +236,7 @@ void Processing::MeshProcessor<N>::optimize_dual_grid(int iterations)
 }
 
 template <int N>
-void Processing::MeshProcessor<N>::optimize_primal_grid(bool qef, bool set_colors)
+void Processing::MeshProcessor<N>::optimize_primal_grid(bool qef, bool set_colors, bool process_boundary)
 {
 	int v_count = (int)vertices.count;
 	int i;
@@ -244,7 +244,7 @@ void Processing::MeshProcessor<N>::optimize_primal_grid(bool qef, bool set_color
 	for (i = 0; i < v_count; i++)
 	{
 		DualVertex& v = vertices[i];
-		if (v.adj_next == 0)
+		if (v.adj_next == 0 || (!process_boundary && v.boundary))
 			continue;
 		vec3 p(0, 0, 0);
 		vec3 n(0, 0, 0);

@@ -4,6 +4,7 @@
 
 struct DualVertex
 {
+	bool boundary;
 	uint8_t mask;
 	uint32_t index;
 	uint8_t valence;
@@ -26,6 +27,7 @@ struct DMC_Isovertex
 {
 	uint32_t index;
 	float value;
+	bool boundary;
 	glm::vec3 position;
 };
 

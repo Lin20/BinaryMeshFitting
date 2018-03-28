@@ -78,6 +78,9 @@
     <ClCompile Include="DMCChunk.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Frustum.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core.hpp">
@@ -230,10 +233,17 @@
     <ClInclude Include="sparsepp\spp_utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Frustum.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="MemoryPool.tcc">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="shaders\main_fs.glsl" />
+    <None Include="shaders\main_vs.glsl" />
+    <None Include="shaders\outline_fs.glsl" />
+    <None Include="shaders\outline_vs.glsl" />
   </ItemGroup>
 </Project>

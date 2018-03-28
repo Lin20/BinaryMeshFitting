@@ -27,7 +27,6 @@ public:
 	float size;
 	glm::vec3 pos;
 	float snap_threshold;
-	int max_level;
 
 	bool contains_mesh;
 	uint32_t mesh_offset;
@@ -54,13 +53,17 @@ public:
 	children_pool octree_children;
 	SmartContainer<DMCNode*> nodes;
 
+	glm::vec3 overlap_pos;
+	glm::vec3 bound_start;
+	float bound_size;
+
 	DMCChunk();
-	DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code, int max_level);
+	DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code);
 	~DMCChunk();
 
 	// Main pipeline
-	void init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code, int max_level);
-	void label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator, int process_iters);
+	void init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code);
+	void label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator, float overlap);
 	void label_edges(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<DMC_CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<MasksBlock>* masks_allocator);
 	void snap_verts();
 	void polygonize();

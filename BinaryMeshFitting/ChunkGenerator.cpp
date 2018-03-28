@@ -82,6 +82,9 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 	int count = (int)batch.count;
 	int i;
 	int iters = world->properties.process_iters;
+	int max_level = world->properties.max_level;
+	bool boundary_processing = world->properties.boundary_processing;
+	float base_overlap = world->properties.overlap;
 
 #pragma omp parallel for
 	for (i = 0; i < count; i++)
@@ -90,7 +93,8 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 		{
 			if (update_still_needed(batch[i]))
 			{
-				batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator, iters);
+				float overlap = (batch[i]->level == max_level && (!boundary_processing || iters == 0) ? 0.0f : base_overlap + 0.005f * (float)iters);
+				batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator, overlap);
 
 				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator, &masks_allocator);
 
@@ -110,8 +114,8 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 					Processing::MeshProcessor<3> mp(true, SMOOTH_NORMALS);
 					mp.init(batch[i]->chunk->vi->vertices, batch[i]->chunk->vi->mesh_indexes, sampler);
 
-					mp.optimize_dual_grid(iters);
-					mp.optimize_primal_grid(false, false);
+					mp.optimize_dual_grid(iters, boundary_processing);
+					mp.optimize_primal_grid(false, false, boundary_processing);
 					v_out.count = 0;
 					i_out.count = 0;
 					mp.flush(v_out, i_out);

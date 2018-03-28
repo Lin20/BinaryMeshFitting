@@ -19,7 +19,8 @@ namespace Processing
 		glm::vec3 dual_n;
 		glm::vec3 dual_c;
 		float weight;
-		int destroyed : 1;
+		bool destroyed;
+		bool boundary;
 	};
 
 	struct Edge
@@ -69,8 +70,8 @@ namespace Processing
 		void flush_to_tris(SmartContainer<DualVertex>& v_out, SmartContainer<uint32_t>& inds);
 		void flush(SmartContainer<glm::vec3>& v_pos, SmartContainer <glm::vec3>& v_norm, SmartContainer<uint32_t>& inds);
 		void init_primitives(SmartContainer<uint32_t>& inds);
-		void optimize_dual_grid(int iterations);
-		void optimize_primal_grid(bool qef, bool set_colors);
+		void optimize_dual_grid(int iterations, bool process_boundary = true);
+		void optimize_primal_grid(bool qef, bool set_colors, bool process_boundary = true);
 
 		void optimize_dual_prims(int start, bool face_norm);
 

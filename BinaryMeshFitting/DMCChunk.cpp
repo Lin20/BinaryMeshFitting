@@ -37,9 +37,9 @@ DMCChunk::DMCChunk()
 	density_block = 0;
 }
 
-DMCChunk::DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code, int max_level)
+DMCChunk::DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code)
 {
-	init(pos, size, level, sampler, parent_code, max_level);
+	init(pos, size, level, sampler, parent_code);
 }
 
 DMCChunk::~DMCChunk()
@@ -53,7 +53,7 @@ DMCChunk::~DMCChunk()
 	}
 }
 
-void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code, int max_level)
+void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code)
 {
 	this->pos = pos;
 	this->dim = RESOLUTION;
@@ -72,10 +72,9 @@ void DMCChunk::init(glm::vec3 pos, float size, int level, Sampler& sampler, uint
 	this->binary_block = 0;
 	this->octree.leaf_flag = true;
 	this->parent_code = parent_code;
-	this->max_level = max_level;
 }
 
-void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator, int process_iters)
+void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator, float overlap)
 {
 	bool positive = false, negative = false;
 
@@ -90,11 +89,14 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 	binary_block = binary_allocator->new_element();
 	binary_block->init(dim * dim * dim, real_count);
 
-	float modifier = (level == max_level && !process_iters ? 0.0f : 0.035f);
-	float delta = size * (1.0f + modifier * 2.0f) / (float)(dim - 1);
+	float delta = size * (1.0f + overlap * 2.0f) / (float)(dim - 1);
 	const float scale = 1.0f;
 	const float res = sampler.world_size;
-	vec3 local_pos = pos - size * modifier;
+	overlap_pos = pos - size * overlap;
+
+	bound_size = size * (1.0f + overlap * 2.0f) * 0.5f;
+	bound_start = overlap_pos + bound_size;
+
 	density_block = density_allocator->new_element();
 	density_block->init(dim * dim * dim);
 
@@ -104,7 +106,7 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 	NoiseSamplers::NoiseSamplerProperties properties;
 	properties.level = this->level;
 
-	sampler.block(res, local_pos/* + vec3(delta * 0.5f, delta * 0.5f, delta * 0.5f)*/, ivec3(dim, dim, dim), delta * scale, (void**)&density_block->data, &noise_block->vectorset, noise_block->dest_noise, sizeof(uint32_t), sizeof(DMC_Isovertex), 0);
+	sampler.block(res, overlap_pos/* + vec3(delta * 0.5f, delta * 0.5f, delta * 0.5f)*/, ivec3(dim, dim, dim), delta * scale, (void**)&density_block->data, &noise_block->vectorset, noise_block->dest_noise, sizeof(uint32_t), sizeof(DMC_Isovertex), 0);
 
 	vec3 dxyz;
 	auto f = sampler.value;
@@ -113,10 +115,10 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 	bool mesh = false;
 	for (uint32_t x = 0; x < dim; x++)
 	{
-		float dx = local_pos.x + (float)x * delta;
+		float dx = (float)x * delta;
 		for (uint32_t y = 0; y < dim; y++)
 		{
-			float dy = local_pos.y + (float)y * delta;
+			float dy = (float)y * delta;
 			for (uint32_t z_block = 0; z_block < z_count; z_block++)
 			{
 				DMC_Isovertex* block_samples = density_block->data + x * y_per_x + y * z_per_y + z_block * 32;
@@ -127,7 +129,7 @@ void DMCChunk::label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, Reso
 
 				for (uint32_t z = 0; z < z_max; z++)
 				{
-					float dz = local_pos.z + (float)(z_block * 32 + z) * delta;
+					float dz = (float)(z_block * 32 + z) * delta;
 					float s = block_samples[z].value;
 					if (s < 0.0f)
 						m |= 1 << z;
@@ -664,6 +666,7 @@ void DMCChunk::calculate_isovertex(int x0, int y0, int z0, int x1, int y1, int z
 	DMC_Isovertex& v1 = density_block->data[x1 * dim * dim + y1 * dim + z1];
 	out.position = _get_intersection(v0.position, v1.position, v0.value, v1.value, 0.0f);
 	out.value = 0.0f;
+	out.boundary = x0 == 0 || y0 == 0 || z0 == 0 || x0 == dim - 1 || y0 == dim - 1 || z0 == dim - 1 || x1 == dim - 1 || y1 == dim - 1 || z1 == dim - 1;
 }
 
 DualVertex DMCChunk::calculate_dual_vertex(DMC_Isovertex& in)
@@ -676,6 +679,7 @@ DualVertex DMCChunk::calculate_dual_vertex(DMC_Isovertex& in)
 	dv.valence = 0;
 	dv.adj_next = 0;
 	dv.adj_offset = 0;
+	dv.boundary = in.boundary;
 
 	return dv;
 }

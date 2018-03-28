@@ -6,6 +6,7 @@
 #include "FPSCamera.hpp"
 #include "GLChunk.hpp"
 #include "WorldOctree.hpp"
+#include "Frustum.hpp"
 
 #include <thread>
 #include <mutex>
@@ -46,12 +47,17 @@ class DebugScene
 	GLint shader_eye_pos;
 	GLint shader_smooth_shading;
 	GLint shader_specular_power;
+	GLint shader_camera_pos;
+	GLint shader_chunk_pos;
 
 	GLint outline_shader_projection;
 	GLint outline_shader_view;
 	GLint outline_shader_mul_clr;
+	GLint outline_shader_camera_pos;
+	GLint outline_shader_chunk_pos;
 
 	class FPSCamera camera;
+	Frustum frustum;
 	GLChunk gl_chunk;
 	WorldOctree world;
 
@@ -63,6 +69,9 @@ class DebugScene
 public:
 	DebugScene(struct RenderInput* input);
 	~DebugScene();
+
+	bool create_shader(std::string data, GLuint* out, GLenum type, const char* name);
+	bool create_shader_from_file(std::string filename, GLuint* out, GLenum type, const char* name);
 
 	void init_dmc_chunk();
 	void init_world();

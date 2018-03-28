@@ -26,6 +26,8 @@ struct WorldProperties
 	int process_iters;
 	int chunk_resolution;
 	bool enable_stitching;
+	float overlap;
+	bool boundary_processing;
 
 	__declspec(noinline) WorldProperties();
 };

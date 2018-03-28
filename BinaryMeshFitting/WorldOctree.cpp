@@ -28,6 +28,8 @@ __declspec(noinline) WorldProperties::WorldProperties()
 	process_iters = DEFAULT_ITERATIONS;
 	chunk_resolution = DEFAULT_RESOLUTION;
 	enable_stitching = false;
+	overlap = 0.035f;
+	boundary_processing = false;
 }
 
 WorldOctree::WorldOctree()
@@ -251,7 +253,7 @@ bool WorldOctree::node_needs_group(const glm::vec3& center, WorldOctreeNode* n)
 void WorldOctree::create_chunk(WorldOctreeNode* n)
 {
 	n->chunk = chunk_pool.newElement();
-	n->chunk->init(n->pos, n->size, n->level, sampler, n->morton_code.code, properties.max_level);
+	n->chunk->init(n->pos, n->size, n->level, sampler, n->morton_code.code);
 	n->chunk->dim = properties.chunk_resolution;
 	n->chunk->id = next_chunk_id++;
 }
