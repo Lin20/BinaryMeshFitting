@@ -44,6 +44,15 @@ WorldOctree::WorldOctree()
 
 	this->properties = WorldProperties();
 
+	noise_properties.noise_type = FastNoiseSIMD::NoiseType::ValueFractal;
+	noise_properties.fractal_type = FastNoiseSIMD::FractalType::FBM;
+	noise_properties.g_scale = 0.25f;
+	noise_properties.height = 75.0f;
+	noise_properties.octaves = 13;
+	noise_properties.amp = 0.87f;
+	noise_properties.frequency = 0.585f;
+	noise_properties.gain = 0.488f;
+
 	v_out.scale = 4;
 	i_out.scale = 4;
 
@@ -83,7 +92,8 @@ void destroy_world_nodes(MemoryPool<WorldOctreeNode>* pool, MemoryPool<DMCChunk>
 WorldOctree::~WorldOctree()
 {
 	destroy_world_nodes(&node_pool, &chunk_pool, &octree);
-	delete sampler.noise_sampler;
+	for (int i = 0; i < 8; i++)
+		delete sampler.noise_samplers[i];
 }
 
 void WorldOctree::destroy_leaves()

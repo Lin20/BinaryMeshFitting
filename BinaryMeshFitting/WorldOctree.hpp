@@ -10,6 +10,7 @@
 #include "WorldWatcher.hpp"
 #include "ResourceAllocator.hpp"
 #include "ChunkBlocks.hpp"
+#include "NoiseSampler.hpp"
 
 #include <list>
 #include <stack>
@@ -45,6 +46,7 @@ public:
 	SmartContainer<uint32_t> i_out;
 	GLChunk outline_chunk;
 	int next_chunk_id;
+	NoiseSamplers::NoiseSamplerProperties noise_properties;
 
 	uint32_t leaf_count;
 	glm::vec3 focus_point;

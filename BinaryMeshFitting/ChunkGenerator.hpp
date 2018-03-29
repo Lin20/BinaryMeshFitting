@@ -26,6 +26,7 @@ public:
 	std::condition_variable _cv;
 
 	ResourceAllocator<GLChunk> gl_allocator;
+	ResourceAllocator<DensityBlock> density_allocator;
 	ResourceAllocator<BinaryBlock> binary_allocator;
 	ResourceAllocator<MasksBlock> masks_allocator;
 	ResourceAllocator<VerticesIndicesBlock> vi_allocator;

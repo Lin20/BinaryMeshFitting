@@ -8,8 +8,12 @@
 class SamplerProperties
 {
 public:
-	inline SamplerProperties() {}
+	int thread_id;
+
+	inline SamplerProperties() : thread_id(0) {}
+	inline SamplerProperties(int _thread_id) : thread_id(_thread_id) {}
 	virtual ~SamplerProperties() {};
+
 };
 
 //typedef std::function<float(const float world_size, const glm::vec3& p)> SamplerValueFunction;
@@ -23,9 +27,9 @@ struct Sampler
 	SamplerValueFunction value;
 	SamplerBlockFunction block;
 	SamplerGradientFunction gradient;
-	FastNoiseSIMD* noise_sampler;
+	FastNoiseSIMD* noise_samplers[8];
 
-	inline Sampler() : noise_sampler(0) {}
+	inline Sampler() { for (int i = 0; i < 8; i++) noise_samplers[i] = 0; }
 	inline virtual ~Sampler() {}
 };
 

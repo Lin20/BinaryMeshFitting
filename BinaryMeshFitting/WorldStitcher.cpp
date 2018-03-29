@@ -730,7 +730,7 @@ void WorldStitcher::stitch_primal(MortonCode& morton_code, SmartContainer<DualVe
 				float delta = 1.0f / 32.0f * c->size;
 				pseudo_nodes[j].pos = c->pos + glm::vec3((float)x * delta, (float)y * delta, (float)z * delta);
 				pseudo_nodes[j].size = delta;
-				pseudo_nodes[j].sample = c->density_block->data[x * 32 * 32 + y * 32 + z].value;
+				pseudo_nodes[j].sample = c->density_block->data[x * 32 * 32 + y * 32 + z];
 				final_nodes[j] = &pseudo_nodes[j];
 			}
 		}

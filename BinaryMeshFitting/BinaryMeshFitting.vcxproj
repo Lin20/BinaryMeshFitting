@@ -182,6 +182,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Texture.cpp" />
     <ClCompile Include="WorldOctree.cpp" />
     <ClCompile Include="WorldOctreeNode.cpp" />
     <ClCompile Include="WorldStitcher.cpp" />
@@ -225,7 +226,9 @@
     <ClInclude Include="sparsepp\spp_timer.h" />
     <ClInclude Include="sparsepp\spp_traits.h" />
     <ClInclude Include="sparsepp\spp_utils.h" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="Tables.hpp" />
+    <ClInclude Include="Texture.hpp" />
     <ClInclude Include="ThreadDebug.hpp" />
     <ClInclude Include="Vertices.hpp" />
     <ClInclude Include="FPSCamera.hpp" />

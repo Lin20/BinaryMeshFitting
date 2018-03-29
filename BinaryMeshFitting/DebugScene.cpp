@@ -78,33 +78,22 @@ DebugScene::DebugScene(RenderInput* render_input)
 	float dy[] = { 0, 0, 1, 1, 0, 0, 1, 1 };
 	float dz[] = { 0, 0, 0, 0, 1, 1, 1, 1 };
 
+	create_texture("rock.jpg", rock_texture);
+	create_texture("rock2.jpg", rock2_texture);
+	create_texture("grass.jpg", grass_texture);
+
+	unsigned char* pixels = (unsigned char*)malloc(16 * 16 * 16 * 3);
+	for (int i = 0; i < 16 * 16 * 16 * 3; i++)
+	{
+		char c = rand() % 256;
+		pixels[i] = c;
+	}
+	noise_texture.init(16, 16, 16, pixels);
 
 	GLint success;
 	GLint log_size = 0;
 
-	create_shader_from_file("main_vs.glsl", &vertex_shader, GL_VERTEX_SHADER, "regular vs");
-	create_shader_from_file("main_fs.glsl", &fragment_shader, GL_FRAGMENT_SHADER, "regular fs");
-
-	create_shader_from_file("outline_vs.glsl", &outline_vs, GL_VERTEX_SHADER, "outline vs");
-	create_shader_from_file("outline_fs.glsl", &outline_fs, GL_FRAGMENT_SHADER, "outline fs");
-
-	this->shader_program = glCreateProgram();
-	glAttachShader(this->shader_program, this->fragment_shader);
-	glAttachShader(this->shader_program, this->vertex_shader);
-
-	glBindAttribLocation(this->shader_program, 0, "vertex_position");
-	glBindAttribLocation(this->shader_program, 1, "vertex_normal");
-
-	glLinkProgram(this->shader_program);
-	LINKER_ERROR_CHECK(this->shader_program, "regular shader");
-	this->shader_projection = glGetUniformLocation(this->shader_program, "projection");
-	this->shader_view = glGetUniformLocation(this->shader_program, "view");
-	this->shader_mul_clr = glGetUniformLocation(this->shader_program, "mul_color");
-	this->shader_eye_pos = glGetUniformLocation(this->shader_program, "eye_pos");
-	this->shader_smooth_shading = glGetUniformLocation(this->shader_program, "smooth_shading");
-	this->shader_specular_power = glGetUniformLocation(this->shader_program, "specular_power");
-	this->shader_camera_pos = glGetUniformLocation(this->shader_program, "camera_pos");
-	this->shader_chunk_pos = glGetUniformLocation(this->shader_program, "chunk_pos");
+	load_main_shader();
 
 	this->outline_sp = glCreateProgram();
 	glAttachShader(this->outline_sp, this->outline_fs);
@@ -141,6 +130,28 @@ DebugScene::~DebugScene()
 
 	delete dmc_chunk;
 	ImGui_ImplGlfwGL3_Shutdown();
+}
+
+bool DebugScene::create_texture(std::string filename, Texture& out)
+{
+	std::string paths[4] = { "", "C:/textures/", "./textures/", "../../BinaryMeshFitting/textures/" };
+
+	std::cout << "Loading " << filename << "...";
+
+	for (int i = 0; i < 4; i++)
+	{
+		std::string local_path = paths[i];
+		local_path.append(filename);
+		if (out.load_from_file(local_path))
+			break;
+	}
+
+	if (out.initialized)
+		std::cout << "Success." << std::endl;
+	else
+		std::cout << "Failed." << std::endl;
+
+	return out.initialized;
 }
 
 bool DebugScene::create_shader(std::string data, GLuint* out, GLenum type, const char* name)
@@ -184,6 +195,41 @@ bool DebugScene::create_shader_from_file(std::string filename, GLuint* out, GLen
 
 	std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
 	return create_shader(str, out, type, name);
+}
+
+void DebugScene::load_main_shader()
+{
+	GLint success;
+	GLint log_size = 0;
+
+	create_shader_from_file("main_vs.glsl", &vertex_shader, GL_VERTEX_SHADER, "regular vs");
+	create_shader_from_file("main_fs.glsl", &fragment_shader, GL_FRAGMENT_SHADER, "regular fs");
+
+	create_shader_from_file("outline_vs.glsl", &outline_vs, GL_VERTEX_SHADER, "outline vs");
+	create_shader_from_file("outline_fs.glsl", &outline_fs, GL_FRAGMENT_SHADER, "outline fs");
+
+	this->shader_program = glCreateProgram();
+	glAttachShader(this->shader_program, this->fragment_shader);
+	glAttachShader(this->shader_program, this->vertex_shader);
+
+	glBindAttribLocation(this->shader_program, 0, "vertex_position");
+	glBindAttribLocation(this->shader_program, 1, "vertex_normal");
+
+	glLinkProgram(this->shader_program);
+	LINKER_ERROR_CHECK(this->shader_program, "regular shader");
+	this->shader_projection = glGetUniformLocation(this->shader_program, "projection");
+	this->shader_view = glGetUniformLocation(this->shader_program, "view");
+	this->shader_mul_clr = glGetUniformLocation(this->shader_program, "mul_color");
+	this->shader_eye_pos = glGetUniformLocation(this->shader_program, "eye_pos");
+	this->shader_smooth_shading = glGetUniformLocation(this->shader_program, "smooth_shading");
+	this->shader_specular_power = glGetUniformLocation(this->shader_program, "specular_power");
+	this->shader_camera_pos = glGetUniformLocation(this->shader_program, "camera_pos");
+	this->shader_chunk_pos = glGetUniformLocation(this->shader_program, "chunk_pos");
+	this->shader_chunk_depth = glGetUniformLocation(this->shader_program, "chunk_depth");
+	this->shader_rock_texture = glGetUniformLocation(this->shader_program, "rock_texture");
+	this->shader_rock2_texture = glGetUniformLocation(this->shader_program, "rock2_texture");
+	this->shader_grass_texture = glGetUniformLocation(this->shader_program, "grass_texture");
+	this->shader_noise_texture = glGetUniformLocation(this->shader_program, "noise_texture");
 }
 
 void DebugScene::init_dmc_chunk()
@@ -245,7 +291,8 @@ void DebugScene::init_dmc_chunk()
 	gl_chunk.format_data(v_out, i_out, false, smooth_shading);
 	gl_chunk.set_data(gl_chunk.p_data, gl_chunk.c_data, &i_out);
 
-	delete sampler.noise_sampler;
+	for(int i = 0; i < 8; i++)
+		delete sampler.noise_samplers[i];
 }
 
 void DebugScene::init_world()
@@ -332,6 +379,20 @@ void DebugScene::render_world()
 		glUniform1f(shader_smooth_shading, (smooth_shading || flat_quads ? 1.0f : 0.0f));
 		glUniform1f(shader_specular_power, specular_power);
 
+		glUniform1i(shader_rock_texture, 0);
+		glUniform1i(shader_rock2_texture, 1);
+		glUniform1i(shader_grass_texture, 2);
+		glUniform1i(shader_noise_texture, 3);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, rock_texture.id);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, rock2_texture.id);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, grass_texture.id);
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_3D, noise_texture.id);
+
 		WorldOctreeNode* n = world.watcher.renderables_head;
 		while (n)
 		{
@@ -340,7 +401,8 @@ void DebugScene::render_world()
 			{
 				if (n->gl_chunk && n->gl_chunk->p_count != 0 && frustum.CubeInFrustum(n->chunk->bound_start.x, n->chunk->bound_start.y, n->chunk->bound_start.z, n->chunk->bound_size))
 				{
-					glUniform3f(shader_chunk_pos, n->chunk->overlap_pos.x, n->chunk->overlap_pos.y, n->chunk->overlap_pos.z);
+					glUniform4f(shader_chunk_pos, n->chunk->overlap_pos.x, n->chunk->overlap_pos.y, n->chunk->overlap_pos.z, n->chunk->scale);
+					glUniform1f(shader_chunk_depth, n->level);
 					glBindVertexArray(n->gl_chunk->vao);
 					if (!flat_quads || !QUADS)
 						glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), n->gl_chunk->p_count, GL_UNSIGNED_INT, 0);
@@ -356,6 +418,15 @@ void DebugScene::render_world()
 			glBindVertexArray(world.watcher.generator.stitcher.gl_chunk.vao);
 			glDrawArrays(GL_TRIANGLES, 0, world.watcher.generator.stitcher.gl_chunk.v_count);
 		}
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_3D, 0);
 
 		//glDisable(GL_POLYGON_OFFSET_FILL);
 	}
@@ -383,7 +454,7 @@ void DebugScene::render_world()
 			{
 				if (n->gl_chunk && n->gl_chunk->p_count != 0 && frustum.CubeInFrustum(n->chunk->bound_start.x, n->chunk->bound_start.y, n->chunk->bound_start.z, n->chunk->bound_size))
 				{
-					glUniform3f(outline_shader_chunk_pos, n->chunk->overlap_pos.x, n->chunk->overlap_pos.y, n->chunk->overlap_pos.z);
+					glUniform4f(outline_shader_chunk_pos, n->chunk->overlap_pos.x, n->chunk->overlap_pos.y, n->chunk->overlap_pos.z, n->chunk->scale);
 					glBindVertexArray(n->gl_chunk->vao);
 					if (!flat_quads || !QUADS)
 						glDrawElements((QUADS ? GL_QUADS : GL_TRIANGLES), n->gl_chunk->p_count, GL_UNSIGNED_INT, 0);
@@ -444,6 +515,10 @@ void DebugScene::key_callback(int key, int scancode, int action, int mods)
 		if (key == GLFW_KEY_F5)
 		{
 			world_visible = !world_visible;
+		}
+		if (key == GLFW_KEY_F6)
+		{
+			reload_shaders();
 		}
 
 		if (key == GLFW_KEY_R)
@@ -623,9 +698,8 @@ void DebugScene::render_gui()
 
 	ImGui::Text("Overlap:");
 	ImGui::NextColumn();
-	ImGui::SliderFloat("##lbl_overlap", &world.properties.overlap, 0.0f, 0.05f);
+	ImGui::SliderFloat("##lbl_overlap", &world.properties.overlap, 0.0f, 0.1f);
 	ImGui::NextColumn();
-
 
 	ImGui::Separator();
 
@@ -637,8 +711,66 @@ void DebugScene::render_gui()
 	ImGui::Checkbox("Stitching", &world.properties.enable_stitching);
 	ImGui::Checkbox("Update focus point", &update_focus);
 
+	ImGui::Separator();
+
+	if (ImGui::Button("Reload Shaders"))
+	{
+		reload_shaders();
+	}
+
 	ImGui::End();
 
+
+
+	ImGui::Begin("Noise");
+
+	ImGui::Columns(2, 0, false);
+
+	ImGui::Text("Scale:");
+	ImGui::NextColumn();
+	ImGui::SliderFloat("##lbl_noise_scale", &world.noise_properties.g_scale, 0.0625f, 1.0f);
+	ImGui::NextColumn();
+
+	ImGui::Text("Height:");
+	ImGui::NextColumn();
+	ImGui::SliderFloat("##lbl_noise_height", &world.noise_properties.height, 16.0f, 128.0f);
+	ImGui::NextColumn();
+
+	ImGui::Text("Octaves:");
+	ImGui::NextColumn();
+	ImGui::SliderInt("##lbl_noise_octaves", &world.noise_properties.octaves, 1, 32);
+	ImGui::NextColumn();
+
+	ImGui::Text("Amp:");
+	ImGui::NextColumn();
+	ImGui::SliderFloat("##lbl_noise_amp", &world.noise_properties.amp, 0.0f, 4.0f);
+	ImGui::NextColumn();
+
+	ImGui::Text("Frequency:");
+	ImGui::NextColumn();
+	ImGui::SliderFloat("##lbl_noise_freq", &world.noise_properties.frequency, 0.0f, 4.0f);
+	ImGui::NextColumn();
+
+	ImGui::Text("Gain:");
+	ImGui::NextColumn();
+	ImGui::SliderFloat("##lbl_noise_gain", &world.noise_properties.gain, 0.42f, 0.52);
+	ImGui::NextColumn();
+
+	ImGui::End();
+
+
+
 	ImGui::Render();
+}
+
+void DebugScene::reload_shaders()
+{
+	std::cout << "Reloading shaders." << std::endl;
+
+	glDeleteShader(vertex_shader);
+	glDeleteShader(fragment_shader);
+	glDeleteShader(shader_program);
+
+	load_main_shader();
 }
 

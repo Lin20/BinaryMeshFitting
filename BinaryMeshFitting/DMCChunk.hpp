@@ -16,6 +16,7 @@
 #include "WorldOctreeNode.hpp"
 #include "MemoryPool.h"
 #include "HashMap.hpp"
+#include "NoiseSampler.hpp"
 
 class DMCChunk
 {
@@ -36,7 +37,7 @@ public:
 
 	VerticesIndicesBlock* vi;
 
-	IsoVertexBlock* density_block;
+	DensityBlock* density_block;
 	BinaryBlock* binary_block;
 	DMC_CellsBlock* cell_block;
 	IndexesBlock* indexes_block;
@@ -56,6 +57,7 @@ public:
 	glm::vec3 overlap_pos;
 	glm::vec3 bound_start;
 	float bound_size;
+	float scale;
 
 	DMCChunk();
 	DMCChunk(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code);
@@ -63,8 +65,8 @@ public:
 
 	// Main pipeline
 	void init(glm::vec3 pos, float size, int level, Sampler& sampler, uint64_t parent_code);
-	void label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator, float overlap);
-	void label_edges(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<DMC_CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator, ResourceAllocator<IsoVertexBlock>* density_allocator, ResourceAllocator<MasksBlock>* masks_allocator);
+	void label_grid(ResourceAllocator<BinaryBlock>* binary_allocator, ResourceAllocator<DensityBlock>* density_allocator, ResourceAllocator<NoiseBlock>* noise_allocator, float overlap, NoiseSamplers::NoiseSamplerProperties properties);
+	void label_edges(ResourceAllocator<VerticesIndicesBlock>* vi_allocator, ResourceAllocator<DMC_CellsBlock>* cell_allocator, ResourceAllocator<IndexesBlock>* inds_allocator, ResourceAllocator<DensityBlock>* density_allocator, ResourceAllocator<MasksBlock>* masks_allocator);
 	void snap_verts();
 	void polygonize();
 	void polygonize_cell(DMC_Cell& _c, int x, int y, int z, int dim, SmartContainer<DualVertex>& verts, SmartContainer<uint32_t>& inds);

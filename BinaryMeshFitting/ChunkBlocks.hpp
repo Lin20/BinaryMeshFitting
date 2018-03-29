@@ -36,6 +36,36 @@ struct BinaryBlock : public LinkedNode<BinaryBlock>
 	}
 };
 
+struct DensityBlock : public LinkedNode<DensityBlock>
+{
+	uint32_t size;
+	float* data;
+	bool initialized;
+
+	inline DensityBlock()
+	{
+		initialized = false;
+		size = 0;
+		data = 0;
+	}
+
+	inline ~DensityBlock()
+	{
+		_aligned_free(data);
+		size = 0;
+		initialized = false;
+	}
+
+	void init(uint32_t _size)
+	{
+		if (initialized)
+			return;
+		_aligned_free(data);
+		data = (float*)_aligned_malloc(sizeof(float) * _size, 16);
+		initialized = true;
+	}
+};
+
 struct IsoVertexBlock : public LinkedNode<IsoVertexBlock>
 {
 	uint32_t size;

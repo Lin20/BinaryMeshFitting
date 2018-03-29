@@ -5,6 +5,7 @@
 #include "MeshProcessor.hpp"
 #include "DefaultOptions.h"
 #include "DMCChunk.hpp"
+#include "NoiseSampler.hpp"
 #include <iostream>
 
 ChunkGenerator::ChunkGenerator() : ThreadDebug("ChunkGenerator")
@@ -85,6 +86,7 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 	int max_level = world->properties.max_level;
 	bool boundary_processing = world->properties.boundary_processing;
 	float base_overlap = world->properties.overlap;
+	NoiseSamplers::NoiseSamplerProperties noise_properties = world->noise_properties;
 
 #pragma omp parallel for
 	for (i = 0; i < count; i++)
@@ -94,9 +96,9 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 			if (update_still_needed(batch[i]))
 			{
 				float overlap = (batch[i]->level == max_level && (!boundary_processing || iters == 0) ? 0.0f : base_overlap + 0.005f * (float)iters);
-				batch[i]->chunk->label_grid(&binary_allocator, &isovertex_allocator, &noise_allocator, overlap);
+				batch[i]->chunk->label_grid(&binary_allocator, &density_allocator, &noise_allocator, overlap, noise_properties);
 
-				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator, &masks_allocator);
+				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &density_allocator, &masks_allocator);
 
 				/*batch[i]->chunk->generate_octree();
 				if (!(batch[i]->flags & NODE_FLAGS_GROUP))
@@ -123,7 +125,7 @@ void ChunkGenerator::extract_chunk(SmartContainer<class WorldOctreeNode*>& batch
 
 				binary_allocator.free_element(batch[i]->chunk->binary_block);
 				batch[i]->chunk->binary_block = 0;
-				isovertex_allocator.free_element(batch[i]->chunk->density_block);
+				density_allocator.free_element(batch[i]->chunk->density_block);
 				batch[i]->chunk->density_block = 0;
 				cell_allocator.free_element(batch[i]->chunk->cell_block);
 				batch[i]->chunk->cell_block = 0;
@@ -204,7 +206,7 @@ void ChunkGenerator::extract_dual_vertices(SmartContainer<WorldOctreeNode*>& bat
 		for (int i = 0; i < count; i++)
 		{
 			if (batch[i]->generation_stage == GENERATION_STAGES_GENERATING)
-				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &isovertex_allocator, &masks_allocator);
+				batch[i]->chunk->label_edges(&vi_allocator, &cell_allocator, &inds_allocator, &density_allocator, &masks_allocator);
 		}
 	}
 

@@ -8,6 +8,14 @@ namespace NoiseSamplers
 	{
 	public:
 		int level;
+		float g_scale;
+		float height;
+		int octaves;
+		float amp;
+		float frequency;
+		float gain;
+		FastNoiseSIMD::NoiseType noise_type;
+		FastNoiseSIMD::FractalType fractal_type;
 
 		inline NoiseSamplerProperties() : SamplerProperties() {}
 		inline ~NoiseSamplerProperties() override {}
@@ -66,7 +74,8 @@ namespace NoiseSamplers
 		Sampler s;
 		s.value = f;
 		s.gradient = std::bind(implicit_gradient, f, _1, _2, _3);
-		s.noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
+		for (int i = 0; i < 8; i++)
+			s.noise_samplers[i] = FastNoiseSIMD::NewFastNoiseSIMD();
 		return s;
 	}
 
@@ -75,7 +84,8 @@ namespace NoiseSamplers
 		using namespace std::placeholders;
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
-		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
+		for (int i = 0; i < 8; i++)
+			s->noise_samplers[i] = FastNoiseSIMD::NewFastNoiseSIMD();
 		s->block = std::bind(noise3d_block, *s, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
 	}
 
@@ -84,7 +94,8 @@ namespace NoiseSamplers
 		using namespace std::placeholders;
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
-		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
+		for (int i = 0; i < 8; i++)
+			s->noise_samplers[i] = FastNoiseSIMD::NewFastNoiseSIMD();
 		s->block = std::bind(terrain2d_block, *s, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
 	}
 
@@ -93,7 +104,8 @@ namespace NoiseSamplers
 		using namespace std::placeholders;
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
-		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
+		for (int i = 0; i < 8; i++)
+			s->noise_samplers[i] = FastNoiseSIMD::NewFastNoiseSIMD();
 		s->block = std::bind(terrain2d_pert_block, *s, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
 	}
 
@@ -102,7 +114,8 @@ namespace NoiseSamplers
 		using namespace std::placeholders;
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
-		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
+		for (int i = 0; i < 8; i++)
+			s->noise_samplers[i] = FastNoiseSIMD::NewFastNoiseSIMD();
 		s->block = std::bind(terrain3d_block, *s, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
 	}
 
@@ -111,7 +124,8 @@ namespace NoiseSamplers
 		using namespace std::placeholders;
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
-		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
+		for (int i = 0; i < 8; i++)
+			s->noise_samplers[i] = FastNoiseSIMD::NewFastNoiseSIMD();
 		s->block = std::bind(terrain3d_pert_block, *s, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
 	}
 
@@ -120,7 +134,8 @@ namespace NoiseSamplers
 		using namespace std::placeholders;
 		s->value = noise3d;
 		s->gradient = std::bind(implicit_gradient, noise3d, _1, _2, _3);
-		s->noise_sampler = FastNoiseSIMD::NewFastNoiseSIMD();
+		for (int i = 0; i < 8; i++)
+			s->noise_samplers[i] = FastNoiseSIMD::NewFastNoiseSIMD();
 		s->block = std::bind(windy3d_block, *s, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
 	}
 }

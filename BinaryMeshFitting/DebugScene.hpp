@@ -7,6 +7,7 @@
 #include "GLChunk.hpp"
 #include "WorldOctree.hpp"
 #include "Frustum.hpp"
+#include "Texture.hpp"
 
 #include <thread>
 #include <mutex>
@@ -49,6 +50,12 @@ class DebugScene
 	GLint shader_specular_power;
 	GLint shader_camera_pos;
 	GLint shader_chunk_pos;
+	GLint shader_chunk_depth;
+
+	GLint shader_rock_texture;
+	GLint shader_rock2_texture;
+	GLint shader_grass_texture;
+	GLint shader_noise_texture;
 
 	GLint outline_shader_projection;
 	GLint outline_shader_view;
@@ -66,12 +73,20 @@ class DebugScene
 	std::mutex gl_mutex;
 	clock_t last_extraction;
 
+	Texture rock_texture;
+	Texture rock2_texture;
+	Texture grass_texture;
+	Texture noise_texture;
+
 public:
 	DebugScene(struct RenderInput* input);
 	~DebugScene();
 
+	bool create_texture(std::string filename, Texture& out);
 	bool create_shader(std::string data, GLuint* out, GLenum type, const char* name);
 	bool create_shader_from_file(std::string filename, GLuint* out, GLenum type, const char* name);
+
+	void load_main_shader();
 
 	void init_dmc_chunk();
 	void init_world();
@@ -83,4 +98,5 @@ public:
 
 	void key_callback(int key, int scancode, int action, int mods);
 	void render_gui();
+	void reload_shaders();
 };
