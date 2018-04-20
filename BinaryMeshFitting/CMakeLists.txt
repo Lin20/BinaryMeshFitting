@@ -20,6 +20,10 @@ find_package(GLM REQUIRED)
 find_package(Vc REQUIRED)
 find_package(FastNoiseSIMD REQUIRED)
 
+set_target_properties(${name} PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+    )
+
 target_include_directories(${name} PRIVATE
     ${GLEW_INCLUDE_DIRS}
     ${GLFW_INCLUDE_DIRS}
