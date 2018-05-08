@@ -3,6 +3,7 @@
 #include "Tables.hpp"
 #include "NoiseSampler.hpp"
 #include <iostream>
+#include <iomanip>
 #include <queue>
 #include <omp.h>
 #include "MCTable.h"

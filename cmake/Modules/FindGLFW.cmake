@@ -1,5 +1,7 @@
 # Currently very minimal.
 
+include(FindPackageHandleStandardArgs)
+
 find_path(GLFW_INCLUDE_DIR GLFW/glfw3.h)
 set(GLFW_INCLUDE_DIRS ${GLFW_INCLUDE_DIR})
 

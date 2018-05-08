@@ -1,5 +1,7 @@
 # Currently very minimal.
 
+include(FindPackageHandleStandardArgs)
+
 find_path(FastNoiseSIMD_INCLUDE_DIR FastNoiseSIMD.h)
 set(FastNoiseSIMD_INCLUDE_DIRS ${FastNoiseSIMD_INCLUDE_DIR})
 
