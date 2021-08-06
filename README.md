@@ -1,6 +1,6 @@
 # BinaryMeshFitting
 
-Yet another attempt at making a fast massive level-of-detail voxel engine, but this time with usable results! Check out <https://voxelspace.net/>
+Yet another attempt at making a fast massive level-of-detail voxel engine, but this time with usable results!
 
 This is the successor to [PushingVoxelsForward](https://github.com/Lin20/PushingVoxelsForward).
 
@@ -102,4 +102,4 @@ Speed is the biggest priority, and as such it's gone through many stages of opti
 
 ## Self-published article(s) describing techniques used
 
-* [Lin. "Fast Cell Mask Building with Pseudo-SIMD Techniques." Voxelspace. December 12, 2017.](https://voxelspace.net/viewtopic.php?f=10&t=17)
+* [Lin. "Fast Cell Mask Building with Pseudo-SIMD Techniques." Voxelspace. December 12, 2017.](https://github.com/Lin20/BinaryMeshFitting/files/6947097/Fast.Cell.Mask.Building.Using.Pseudo-SIMD.Techniques.pdf)
